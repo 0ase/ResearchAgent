@@ -1,41 +1,9 @@
 import asyncio
-import httpx
 from backend.agents.state import ResearchState
-from backend.config import settings
-from backend.sources.arxiv_client import parse_arxiv_response
-
-
-async def search_arxiv(query: str, max_results: int = 10) -> list[dict]:
-    """use arxiv API to get the raw papers"""
-    url = "https://export.arxiv.org/api/query"
-    params = {
-        "search_query": f"all: {query}",
-        "start": 0,
-        "max_results": max_results,
-        "sortBy": "relevance",
-        "sortOrder": "descending",
-    }
-
-    for attempt in range(3):
-        try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                resp = await client.get(url, params=params)
-                if resp.status_code == 429:
-                    wait = 10 * (attempt + 1)
-                    await asyncio.sleep(wait)
-                    continue
-                resp.raise_for_status()
-                return parse_arxiv_response(resp.text)
-        except httpx.ReadTimeout:
-            wait = 5 * (attempt + 1)
-            await asyncio.sleep(wait)
-            continue
-        except Exception:
-            await asyncio.sleep(5)
-            continue
-
-    return []
-
+from backend.sources.arxiv_client import search_arxiv
+from backend.sources.semantic_scholar_client import search_semantic_scholar
+from backend.sources.crossref_client import search_crossref
+from backend.sources.pubmed_client import search_pubmed
 
 async def search_papers(state: ResearchState) -> dict:
     plan = state.get("research_plan", [])
@@ -46,10 +14,17 @@ async def search_papers(state: ResearchState) -> dict:
 
     all_papers = []
     for q in queries:
-        papers = await search_arxiv(q)
-        all_papers.extend(papers)
-        await asyncio.sleep(4)
-
+        arxiv_papers, s2_papers, pubmed_papers, crossref_papers = await asyncio.gather(
+            search_arxiv(q),
+            search_semantic_scholar(q),
+            search_pubmed(q),
+            search_crossref(q),
+        )
+        all_papers.extend(arxiv_papers)
+        all_papers.extend(s2_papers)
+        all_papers.extend(pubmed_papers)
+        all_papers.extend(crossref_papers)
+        await asyncio.sleep(3)
     unique_papers = deduplicate_papers(all_papers)
 
     return {

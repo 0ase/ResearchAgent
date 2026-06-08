@@ -11,7 +11,7 @@ from backend.agents.graph import build_graph
 async def main():
     app = build_graph()
     print("=" * 60)
-    print("测试：端到端 pipeline（Orchestrator → Search → arXiv）")
+    print("测试：端到端 pipeline(Orchestrator → Search → arXiv & s2 & pubmed & crossref)")
     print("=" * 60)
 
     result = await app.ainvoke({
@@ -25,6 +25,12 @@ async def main():
 
     papers = result.get("raw_papers", [])
     print(f"\n📄 论文总数: {len(papers)}")
+    arxiv_count = sum(1 for p in papers if p.get("source") == "arxiv")
+    s2_count = sum(1 for p in papers if p.get("source") == "semantic_scholar")
+    pubmed_count = sum(1 for p in papers if p.get("source") == "pubmed")
+    crossref_count = sum(1 for p in papers if p.get("source") == "crossref")
+    print(f"   来源: arXiv {arxiv_count} 篇, Semantic Scholar {s2_count} 篇, PubMed {pubmed_count}篇, CorssRef {crossref_count}篇")
+
     for i, p in enumerate(papers[:5], 1):
         print(f"  {i}. {p.get('title', 'N/A')[:80]}")
         print(f"     作者: {', '.join(p.get('authors', [])[:3])}")

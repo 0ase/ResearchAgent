@@ -1,4 +1,38 @@
 import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET
+import httpx
+import asyncio
+
+async def search_arxiv(query: str, max_results: int = 10) -> list[dict]:
+    """use arxiv API to get the raw papers"""
+    url = "https://export.arxiv.org/api/query"
+    params = {
+        "search_query": f"all: {query}",
+        "start": 0,
+        "max_results": max_results,
+        "sortBy": "relevance",
+        "sortOrder": "descending",
+    }
+
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                resp = await client.get(url, params=params)
+                if resp.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    await asyncio.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                return parse_arxiv_response(resp.text)
+        except httpx.ReadTimeout:
+            wait = 5 * (attempt + 1)
+            await asyncio.sleep(wait)
+            continue
+        except Exception:
+            await asyncio.sleep(5)
+            continue
+
+    return []
 
 def parse_arxiv_response(xml_text: str) -> list[dict]:
     """Parse the XML text returned by arXiv into a list of paper dictionaries"""

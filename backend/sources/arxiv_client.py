@@ -1,5 +1,4 @@
 import xml.etree.ElementTree as ET
-import xml.etree.ElementTree as ET
 import httpx
 import asyncio
 
@@ -66,5 +65,6 @@ def parse_arxiv_response(xml_text: str) -> list[dict]:
             "source_id": f"arxiv:{arxiv_id}",
             "published_date": "",
             "arxiv_id": arxiv_id, 
+            "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf" if arxiv_id else "",
         })
     return papers

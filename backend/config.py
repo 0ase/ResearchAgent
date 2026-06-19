@@ -11,8 +11,9 @@ class Settings(BaseSettings):
     # 默认模型 轻量模型 嵌入模型
     default_model:str = Field(default="deepseek-v4-pro", description="The default model to use for the API")
     light_model:str = Field(default="deepseek-v4-flash", description="The light model to use for the API")
-    embedding_model:str = Field(default="text-embedding-3-large", description="The embedding model to use for the API")
-    base_url:str = "https://api.deepseek.com"
+    dashscope_api_key: str = Field(default="", env="DASHSCOPE_API_KEY")
+    dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    base_url: str = "https://api.deepseek.com"
 
     # 最大搜索次数 返回的最小论文数量 最大论文数量
     max_search_rounds: int = Field(default=3, ge=1, le=5)
@@ -35,6 +36,5 @@ class Settings(BaseSettings):
     paper_cache_dir: str = Field(default="data/paper_cache", description="The directory to persist the paper cache")
     figures_dir:str = Field(default="data/figures", description="The directory to persist the figures")
     arxiv_rate_limit: float = Field(default=0.33, ge=0.1)
-
 
 settings = Settings()

@@ -4,20 +4,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from langgraph.graph import StateGraph, END
 from backend.agents.state import ResearchState
-from backend.agents.search import search_papers
 from backend.agents.orchestrator import orchestrate
+from backend.agents.search import search_papers
+from backend.agents.read import read_papers
+from backend.agents.analyze import analyze_papers
+from backend.agents.synthesize import synthesize_review
+from backend.agents.critic import critique_output
 
-
-# async def orchestrate(state: ResearchState) -> dict:
-#     """占位：后续实现任务拆解"""
-#     query = state["user_query"]
-#     return {
-#         "research_plan": [{"sub_query": query, "status": "pending"}],
-#         "search_round": 1
-#     }
 
 def decide_after_search(state: ResearchState) -> str:
-    papers = state.get("raw_papers", []) # "[]"代表默认变量，如果没有任何的论文，那么就从一个空列表开始
+    papers = state.get("raw_papers", [])
     round_num = state.get("search_round", 1)
 
     if len(papers) >= 5:
@@ -27,31 +23,59 @@ def decide_after_search(state: ResearchState) -> str:
     else:
         return "not_enough"
 
+
+def decide_approval(state: ResearchState) -> str:
+    critique = state.get("critique", {})
+    if critique.get("approved", True):
+        return "approved"
+    # 第二次被拒 → 强制通过，避免死循环
+    if state.get("feedback"):
+        return "approved"
+    return "rejected"
+
+
 def build_graph() -> StateGraph:
     graph = StateGraph(ResearchState)
+
+    # 注册所有节点
     graph.add_node("orchestrate", orchestrate)
     graph.add_node("search", search_papers)
+    graph.add_node("read", read_papers)
+    graph.add_node("analyze", analyze_papers)
+    graph.add_node("synthesize", synthesize_review)
+    graph.add_node("critic", critique_output)
 
-    graph.set_entry_point("orchestrate") # 设定起始边
+    # 入口
+    graph.set_entry_point("orchestrate")
+
+    # 流水线
     graph.add_edge("orchestrate", "search")
-    graph.add_conditional_edges("search", decide_after_search, 
-        {
-            "enough": END,
-            "not_enough": "search",
-        }
-    )
+    graph.add_conditional_edges("search", decide_after_search, {
+        "enough": "read",
+        "not_enough": "search",
+    })
+    graph.add_edge("read", "analyze")
+    graph.add_edge("analyze", "synthesize")
+    graph.add_edge("synthesize", "critic")
+    graph.add_conditional_edges("critic", decide_approval, {
+        "approved": END,
+        "rejected": "synthesize",
+    })
 
     return graph.compile()
+
 
 async def main():
     app = build_graph()
     result = await app.ainvoke({"user_query": "测试:Transformer注意力机制最新进展"})
     print("✅ 图跑通了！")
-    print(f"研究计划:{result["research_plan"]}")
-    print(f"论文列表:{result["raw_papers"]}")
-    print(f"搜索轮数:{result["search_round"]}")
+    print(f"研究计划: {result['research_plan']}")
+    print(f"论文列表: {result['raw_papers']}")
+    print(f"搜索轮数: {result['search_round']}")
+    print(f"\n📝 答案摘要:")
+    print(result.get("final_answer", "暂无")[:500])
+
 
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
-

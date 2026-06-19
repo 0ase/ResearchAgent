@@ -54,3 +54,5 @@ htmlcov/
 
 # Claude
 .claude/
+
+data/

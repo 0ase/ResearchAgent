@@ -21,7 +21,12 @@ Only return a JSON array, no other content."""
     Return ONLY a JSON array:
     ["sub-query 1: specific angle", "sub-query 2: specific angle", ...]"""
 
-    client = AsyncOpenAI(api_key=settings.anthropic_api_key, base_url=settings.base_url)
+    client = AsyncOpenAI(
+        api_key=settings.anthropic_api_key,
+        base_url=settings.base_url,
+        timeout=120.0,
+        max_retries=2,
+    )
     response = await client.chat.completions.create(
         model=settings.default_model,
         max_tokens=500,

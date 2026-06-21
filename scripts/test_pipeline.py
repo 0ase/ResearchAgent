@@ -4,10 +4,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
+import time
 from backend.agents.graph import build_graph
 
 
 async def main():
+    t_start = time.time()
     app = build_graph()
     print("=" * 60)
     print("🚀 7-Agent 全流程启动")
@@ -18,7 +20,7 @@ async def main():
     result = None
 
     async for state in app.astream(
-        {"user_query": "attention mechanism", "search_round": 0},
+        {"user_query": "neuro modulation", "search_round": 0},
         stream_mode="values",
     ):
         result = state
@@ -86,11 +88,16 @@ async def main():
     papers = result.get("raw_papers", [])
     print(f"\n{'=' * 60}")
     print(f"📊 DONE — {len(papers)} papers | 轮数 {result.get('search_round','?')}")
+    history = result.get("critique_history", [])
+    for h in history:
+        print(f"  第{h['round']}轮评审: {h['score']}/10")
+
     final = result.get("final_answer", "")
     if final:
         print(f"\n📝 最终综述:")
         print(final[:1200])
     print(f"\n✅ 7-Agent 全流程执行完毕！")
+    print(f"⏱️  总耗时: {time.time() - t_start:.1f}s")
 
 
 if __name__ == "__main__":

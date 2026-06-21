@@ -24,12 +24,12 @@ Only return a JSON array, no other content."""
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
-        timeout=120.0,
+        timeout=60.0,
         max_retries=2,
     )
     response = await client.chat.completions.create(
         model=settings.default_model,
-        max_tokens=500,
+        max_tokens=800,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -40,6 +40,10 @@ Only return a JSON array, no other content."""
 
     # 容错解析：LLM 可能返回 ```json ... ``` 包裹的内容
     sub_queries = _parse_json_array(text)
+
+    print(f"\n[Orchestrate] Generated {len(sub_queries)} sub-queries:")
+    for i, q in enumerate(sub_queries, 1):
+        print(f"  {i}. {q[:120]}")
 
     plan = [{"sub_query": q, "status": "pending"} for q in sub_queries]
 
@@ -73,6 +77,9 @@ def _parse_json_array(text: str) -> list[str]:
 
     # 尝试找到第一个 [...]
     match = re.search(r"\[.*?\]", text, re.DOTALL)
+    if not match and text.startswith("[") and not text.rstrip().endswith("]"):
+        text = text.rstrip().rstrip(",") + '"]'
+        match = re.search(r"\[.*?\"\]", text, re.DOTALL)
     if match:
         try:
             result = json.loads(match.group(0))

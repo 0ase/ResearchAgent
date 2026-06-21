@@ -2,7 +2,8 @@ import xml.etree.ElementTree as ET
 import httpx
 import asyncio
 
-async def search_arxiv(query: str, max_results: int = 10) -> list[dict]:
+
+async def search_arxiv(query: str, max_results: int = 10, timeout: int = 30) -> list[dict]:
     """use arxiv API to get the raw papers"""
     url = "https://export.arxiv.org/api/query"
     params = {
@@ -13,25 +14,31 @@ async def search_arxiv(query: str, max_results: int = 10) -> list[dict]:
         "sortOrder": "descending",
     }
 
-    for attempt in range(3):
+    for attempt in range(2):  # reduced from 3 to 2 attempts
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 429:
-                    wait = 10 * (attempt + 1)
+                    wait = 5 * (attempt + 1)
+                    print(f"    [arxiv] 429 rate limited, waiting {wait}s...")
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
                 return parse_arxiv_response(resp.text)
-        except httpx.ReadTimeout:
-            wait = 5 * (attempt + 1)
-            await asyncio.sleep(wait)
-            continue
-        except Exception:
-            await asyncio.sleep(5)
-            continue
+        except httpx.TimeoutException:
+            if attempt == 0:
+                print(f"    [arxiv] timeout ({timeout}s), retrying...")
+                await asyncio.sleep(2)
+                continue
+            print(f"    [arxiv] timeout after retry, giving up")
+        except Exception as e:
+            if attempt == 0:
+                await asyncio.sleep(2)
+                continue
+            print(f"    [arxiv] error: {type(e).__name__}: {e}")
 
     return []
+
 
 def parse_arxiv_response(xml_text: str) -> list[dict]:
     """Parse the XML text returned by arXiv into a list of paper dictionaries"""
@@ -64,7 +71,7 @@ def parse_arxiv_response(xml_text: str) -> list[dict]:
             "source": "arxiv",
             "source_id": f"arxiv:{arxiv_id}",
             "published_date": "",
-            "arxiv_id": arxiv_id, 
+            "arxiv_id": arxiv_id,
             "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf" if arxiv_id else "",
         })
     return papers

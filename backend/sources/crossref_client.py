@@ -3,29 +3,40 @@ import httpx
 
 BASE_URL = "https://api.crossref.org/works"
 
-async def search_crossref(query: str, max_results: int = 10) -> list[dict]:
-    """use crossref api ti search papers"""
-    url = BASE_URL 
+
+async def search_crossref(query: str, max_results: int = 10, timeout: int = 30) -> list[dict]:
+    """use crossref api to search papers"""
+    url = BASE_URL
     params = {
         "query": query,
         "rows": min(max_results, 100),
         "sort": "relevance",
     }
 
-    for attempt in range(3):
-        try: 
-            async with httpx.AsyncClient(timeout=60) as client:
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 429:
-                    await asyncio.sleep(5 * (attempt + 1))
+                    wait = 5 * (attempt + 1)
+                    print(f"    [crossref] 429 rate limited, waiting {wait}s...")
+                    await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
                 return _parse_response(resp.json())
-
-        except Exception:
-            await asyncio.sleep(5)
-            continue
+        except httpx.TimeoutException:
+            if attempt == 0:
+                print(f"    [crossref] timeout ({timeout}s), retrying...")
+                await asyncio.sleep(2)
+                continue
+            print(f"    [crossref] timeout after retry, giving up")
+        except Exception as e:
+            if attempt == 0:
+                await asyncio.sleep(2)
+                continue
+            print(f"    [crossref] error: {type(e).__name__}: {e}")
     return []
+
 
 def _parse_response(data: dict) -> list[dict]:
     """parse Crossref JSON to Unified format"""

@@ -37,4 +37,7 @@ class Settings(BaseSettings):
     figures_dir:str = Field(default="data/figures", description="The directory to persist the figures")
     arxiv_rate_limit: float = Field(default=0.33, ge=0.1)
 
+    unpaywall_email: str = Field(default="research@example.com", env="UNPAYWALL_EMAIL")
+    http_proxy: str = Field(default="", env="UNPAYWALL_PROXY")
+
 settings = Settings()

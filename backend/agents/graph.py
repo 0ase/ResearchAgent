@@ -10,6 +10,7 @@ from backend.agents.read import read_papers
 from backend.agents.analyze import analyze_papers
 from backend.agents.synthesize import synthesize_review
 from backend.agents.critic import critique_output
+from backend.agents.filter import filter_papers
 
 
 def decide_after_search(state: ResearchState) -> str:
@@ -28,8 +29,7 @@ def decide_approval(state: ResearchState) -> str:
     critique = state.get("critique", {})
     if critique.get("approved", True):
         return "approved"
-    # 第二次被拒 → 强制通过，避免死循环
-    if state.get("feedback"):
+    if state.get("critique_round", 0) >= 3:
         return "approved"
     return "rejected"
 
@@ -37,23 +37,24 @@ def decide_approval(state: ResearchState) -> str:
 def build_graph() -> StateGraph:
     graph = StateGraph(ResearchState)
 
-    # 注册所有节点
     graph.add_node("orchestrate", orchestrate)
     graph.add_node("search", search_papers)
     graph.add_node("read", read_papers)
     graph.add_node("analyze", analyze_papers)
     graph.add_node("synthesize", synthesize_review)
+    graph.add_node("filter", filter_papers)
     graph.add_node("critic", critique_output)
 
-    # 入口
+    # entry
     graph.set_entry_point("orchestrate")
 
-    # 流水线
+    # pipeline
     graph.add_edge("orchestrate", "search")
     graph.add_conditional_edges("search", decide_after_search, {
-        "enough": "read",
+        "enough": "filter",
         "not_enough": "search",
     })
+    graph.add_edge("filter", "read")
     graph.add_edge("read", "analyze")
     graph.add_edge("analyze", "synthesize")
     graph.add_edge("synthesize", "critic")

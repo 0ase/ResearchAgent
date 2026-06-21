@@ -16,18 +16,29 @@ async def ingest_paper(paper: dict) -> bool:
         return True
 
     pdf_path = await download_pdf(paper)
-    if not pdf_path:
-        return False
-    
-    chunks = chunk_paper(pdf_path)
-    if not chunks:
-        return False
+    if pdf_path:
+        chunks = chunk_paper(pdf_path)
+        if not chunks:
+            return False
+    else:
+        title = paper.get("title", "").strip()
+        abstract = paper.get("abstract", "").strip()
+        if not title and not abstract:
+            return False
+        content = (
+            f"[Abstract-only -- no full text available]\n\n"
+            f"Title: {title}\n"
+            f"Abstract: {abstract}"
+        )
+        chunks = [{
+            "content": content,
+            "chunk_index": 0,
+            "total_chunks": 1,
+        }]
     
     texts = [c["content"] for c in chunks]
     embeddings = await embed_texts(texts)
-
     add_chunks(chunks, embeddings, paper_id)
-
     return True
 
 async def ingest_papers(papers: list[dict]) -> int:

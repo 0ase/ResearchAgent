@@ -1,109 +1,109 @@
 import json
 import re
+import asyncio
 from openai import AsyncOpenAI
 from backend.agents.state import ResearchState
 from backend.config import settings
 from backend.rag.ingestion import ingest_paper
+from backend.rag.vector_store import get_collection
 from backend.rag.hybrid_search import hybrid_search
-from backend.rag.vector_store import is_paper_indexed
 
 
 async def read_papers(state: ResearchState) -> dict:
-    """Read Agent: ingest papers → search → per-paper LLM summaries"""
+    """Read Agent: ingest selected papers → search → per-paper LLM summaries"""
 
-    papers = state.get("raw_papers", [])
+    selected = state.get("selected_papers", [])
     query = state.get("user_query", "")
 
-    if not papers:
+    if not selected:
         return {"errors": ["no paper to read"], "paper_insights": []}
 
-    # 1. 入库最多 20 篇"可能相关"的论文
-    query_words = set(query.lower().split())
+    # 1. put the most relevant paper into db
     ingested_ids = []
-    tried = 0
-    for paper in papers:
-        if len(ingested_ids) >= 20:
-            break
-        tried += 1
-        if not paper.get("pdf_url"):
-            continue
-        title_words = set(paper.get("title", "").lower().split())
-        abstract_words = set(paper.get("abstract", "").lower().split())
-        overlap = query_words & (title_words | abstract_words)
-        if not overlap and tried <= 40:
-            continue  # 不相关的跳过，但前 20 篇后的全收（防止全跳过）
+    for paper in selected:
         paper_id = paper.get("source_id", "unknown")
-        was_indexed = is_paper_indexed(paper_id)
         success = await ingest_paper(paper)
         if success:
             ingested_ids.append(paper_id)
-            label = "缓存" if was_indexed else "新入库"
-            print(f"    [Read] {label}: {paper_id}")
+            print(f"    [Read] ingested: {paper_id}")
 
     if not ingested_ids:
         return {"errors": ["no papers could be ingested"], "paper_insights": []}
 
-    # 2. 用 hybrid_search 搜一波大的，覆盖多篇论文
-    chunks = await hybrid_search(query, n_results=50)
+    # 2. use paper_id to fetch all chunks of a paper from db
+    collection = get_collection()
+    paper_chunks = {}
 
-    if not chunks:
-        return {"paper_insights": []}
-
-    # 3. 按 paper_id 分组，每篇取前 3 个 chunk
-    from collections import defaultdict
-    paper_chunks = defaultdict(list)
-    for c in chunks:
-        pid = c["paper_id"]
-        if pid in ingested_ids and len(paper_chunks[pid]) < 3:
-            paper_chunks[pid].append(c)
+    for pid in ingested_ids:
+        try:
+            data = collection.get(where={"paper_id": pid})
+            docs = data.get("documents", [])
+            if docs:
+                paper_chunks[pid] = [
+                    {"content": d, "chunk_index": i}
+                    # for i, d in enumerate(docs[:10])
+                    for i, d in enumerate(docs)
+                ]
+        except Exception as e:
+            print(f"    [Read] fetch chunks failed for {pid}: {e}")
 
     if not paper_chunks:
         return {"paper_insights": []}
 
-    # 4. 拼接所有论文的 chunk，让 LLM 按论文分写总结
-    context_parts = []
-    paper_index = {}
-    for idx, (pid, chs) in enumerate(paper_chunks.items(), 1):
-        paper_index[str(idx)] = pid
-        for ci, c in enumerate(chs, 1):
-            context_parts.append(f"[Paper{idx} Chunk{ci}] {c['content'][:600]}")
-    context = "\n\n".join(context_parts)
-
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
-        timeout=120.0,
+        timeout=180.0,
         max_retries=2,
     )
 
-    prompt = (
-        f"Question: {query}\n\n"
-        f"Below are excerpts from {len(paper_chunks)} papers. "
-        f"For EACH paper, write a concise summary of its contribution to answering the question.\n\n"
-        f"{context}\n\n"
-        "Return ONLY valid JSON: {\"papers\": ["
-        "{\"paper_num\": 1, \"summary\": \"This paper proposes...\"}, ...]}"
-    )
+    sem = asyncio.Semaphore(3)
 
-    response = await client.chat.completions.create(
-        model=settings.default_model,
-        max_tokens=3000,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You read academic paper excerpts. "
-                    "For each paper, summarize its key points concisely. "
-                    "Cite specific methods, results, or claims. "
-                    "Return ONLY valid JSON."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-    )
+    async def summarize_one(pid: str, chs: list[dict]) -> dict:
+        chunks_text = "\n\n".join(
+            # f"[Chunk {ci + 1}] {c['content'][:800]}" for ci, c in enumerate(chs)
+            f"[Chunk {ci + 1}] {c['content']}" for ci, c in enumerate(chs)
+        )
+        prompt = (
+            f"Question: {query}\n\n"
+            f"Below are excerpts from a paper. "
+            f"Summarize the paper's contribution to answer the question concisely. "
+            f"Include specific methods, result, or claims.\n\n"
+            f"{chunks_text}\n\n"
+            "Return ONLY the summary, no JSON wrapper."
+        )
+        async with sem:
+            resp = await client.chat.completions.create(
+                model=settings.default_model,
+                max_tokens=1500,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You read academic paper excerpts."
+                            "Summarize the key points concisely, cite specific methods/results/claims."
+                            "Respond in same language as the user's question."
+                            "Return plain text only."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ]
+            )
+        summary = resp.choices[0].message.content.strip()
+        print(f"    [Read] {pid}: {len(summary)} chars")
+        return {
+            "query": query,
+            "answer": summary,
+            "source": pid,
+            "sources": [pid],
+        }
 
-    text = response.choices[0].message.content
-    per_paper = _parse_paper_summaries(text, paper_index, query)
+    tasks = [summarize_one(pid, chs) for pid, chs in paper_chunks.items()]
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+    per_paper = [r for r in raw_results if isinstance(r, dict)]
+    print(f"[Read] LLM summarized {len(per_paper)}/{len(tasks)} papers")
+
+
 
     return {
         "paper_insights": per_paper,
@@ -115,25 +115,53 @@ async def read_papers(state: ResearchState) -> dict:
 
 
 def _parse_paper_summaries(text: str, paper_index: dict, query: str) -> list[dict]:
-    """Parse LLM's JSON into per-paper insights."""
+    """Parse LLM's JSON into per-paper insights. Tolerant of truncated JSON."""
     text = text.strip()
+    data = None
+
+    # 尝试 1：直接解析
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
+        pass
+
+    # 尝试 2：提取 ```json ... ``` 代码块
+    if data is None:
         match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
         if match:
-            data = json.loads(match.group(1))
-        else:
-            match = re.search(r"\{.*\}", text, re.DOTALL)
-            data = json.loads(match.group(0)) if match else {}
+            try:
+                data = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+    # 尝试 3：正则找 {...}，补全可能被截断的 JSON
+    if data is None:
+        match = re.search(r"\{.*\"papers\"\s*:\s*\[.*\]", text, re.DOTALL)
+        if match:
+            raw = match.group(0)
+            # 补全截断：如果最后不是 } 或 ]，尝试补上
+            if not raw.rstrip().endswith("}"):
+                raw = raw.rstrip().rstrip(",") + "]}"
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+
+    # 兜底
+    if data is None:
+        data = {}
 
     results = []
     for item in data.get("papers", []):
         num = str(item.get("paper_num", ""))
         source_id = paper_index.get(num, f"paper_{num}")
+        summary = item.get("summary", "")
+        # 标记截断
+        if summary and not summary.rstrip().endswith((".", "。", ")", "]")):
+            summary += "... [truncated]"
         results.append({
             "query": query,
-            "answer": item.get("summary", ""),
+            "answer": summary,
             "source": source_id,
             "sources": [source_id],
         })

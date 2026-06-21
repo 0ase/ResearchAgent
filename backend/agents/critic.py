@@ -16,6 +16,8 @@ async def critique_output(state: ResearchState) -> dict:
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
+        timeout=120.0,
+        max_retries=2,
     )
     response = await client.chat.completions.create(
         model=settings.default_model,
@@ -50,8 +52,15 @@ async def critique_output(state: ResearchState) -> dict:
     return {
         "critique": critique,
         "approved": critique.get("approved", True),
-        "feedback": critique.get("feedback", "")
+        "feedback": critique.get("feedback", ""),
+        "critique_round": state.get("critique_round", 0) + 1,
+        "critique_history": [{                              
+            "round": state.get("critique_round", 0) + 1,
+            "score": critique.get("score", 0),
+            "issues": critique.get("issues", []),
+        }],
     }
+
 
 
 def _parse_json(text: str) -> dict:
@@ -66,7 +75,7 @@ def _parse_json(text: str) -> dict:
         if match:
             import json
             return json.loads(match.group(1))
-        match = re.search(r"\{.*?\}", text, re.DOTALL)
+        match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             import json
             return json.loads(match.group(0))

@@ -4,24 +4,30 @@ from backend.rag.vector_store import get_collection
 
 _bm25_index = None
 _bm25_chunks = []
+_bm25_metas = []
 
 def _get_bm25():
     """Build or return the BM25 index for all the stored chunks"""
-    global _bm25_index, _bm25_chunks
+    global _bm25_index, _bm25_chunks, _bm25_metas
 
-    collections = get_collection()
-    all_data = collections.get()
-
-    # if data not change, then use cache
+    collection = get_collection()
+    try:
+        all_data = collection.get(limit=5000)
+    except Exception:
+        return None, [], []
+    
     current_count = len(all_data["documents"])
     if _bm25_index is not None and len(_bm25_chunks) == current_count:
-        return _bm25_index, _bm25_chunks
+        return _bm25_index, _bm25_chunks, _bm25_metas
     
-    # build new bm25 index
     _bm25_chunks = all_data["documents"]
+    _bm25_metas = all_data.get("metadatas", [])
+    if not _bm25_chunks:
+        return None, [], []
     tokenized = [doc.split() for doc in _bm25_chunks]
     _bm25_index = BM25Okapi(tokenized)
-    return _bm25_index, _bm25_chunks
+    return _bm25_index, _bm25_chunks, _bm25_metas
+
 
 async def hybrid_search(query: str, n_results: int = 10) -> list[dict]:
     """Hybrid search: Semantics + BM25 → RRF fusion"""
@@ -43,7 +49,7 @@ def _semantic_search(query_embedding: list[float], n: int) -> list[dict]:
 
 def _bm25_search(query: str, n: int) -> list[dict]:
     """BM25 key word search"""
-    bm25, chunks = _get_bm25()
+    bm25, chunks, metas = _get_bm25()
     if bm25 is None:
         return []
     
@@ -52,12 +58,9 @@ def _bm25_search(query: str, n: int) -> list[dict]:
 
     # top k
     indexed = sorted(enumerate(scores), key=lambda x:x[1], reverse=True)[:n]
-    
-    collection = get_collection()
-    all_metas = collection.get()["metadatas"]
 
     return [
-        {"content": chunks[i], "paper_id": all_metas[i]["paper_id"], "chunk_index":all_metas[i]["chunk_index"]}
+        {"content": chunks[i], "paper_id": metas[i]["paper_id"], "chunk_index":metas[i]["chunk_index"]}
         for i, _score in indexed
     ]
 

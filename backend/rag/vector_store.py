@@ -20,7 +20,7 @@ def get_collection(name: str = "paper"):
     return client.get_or_create_collection(name=name)
 
 def add_chunks(chunks: list[dict], embeddings: list[list[float]], paper_id: str):
-    """put all chunks and  vectors of a paper into db
+    """put all chunks and vectors of a paper into db
 
     Args: 
         chunks: chunk_paper() 's output: [{"conten":"...", "chunk_index": 0}, ...]

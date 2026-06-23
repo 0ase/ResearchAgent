@@ -38,6 +38,9 @@ Only return a JSON array, no other content."""
 
     text = response.choices[0].message.content
 
+    print(f"\n[Orchestrate] RAW LLM output ({len(text)} chars):")
+    print(f"  {text[:500]}")
+
     # 容错解析：LLM 可能返回 ```json ... ``` 包裹的内容
     sub_queries = _parse_json_array(text)
 
@@ -76,10 +79,7 @@ def _parse_json_array(text: str) -> list[str]:
             pass
 
     # 尝试找到第一个 [...]
-    match = re.search(r"\[.*?\]", text, re.DOTALL)
-    if not match and text.startswith("[") and not text.rstrip().endswith("]"):
-        text = text.rstrip().rstrip(",") + '"]'
-        match = re.search(r"\[.*?\"\]", text, re.DOTALL)
+    match = re.search(r"\[.*\]", text, re.DOTALL)  # 贪婪匹配拿完整数组
     if match:
         try:
             result = json.loads(match.group(0))

@@ -20,6 +20,8 @@ def decide_after_search(state: ResearchState) -> str:
     if len(papers) >= 5:
         return "enough"
     elif round_num >= 3:
+        if len(papers) == 0:
+            return "no_results"
         return "enough"
     else:
         return "not_enough"
@@ -29,7 +31,7 @@ def decide_approval(state: ResearchState) -> str:
     critique = state.get("critique", {})
     if critique.get("approved", True):
         return "approved"
-    if state.get("critique_round", 0) >= 3:
+    if state.get("critique_round", 0) >= 2:
         return "approved"
     return "rejected"
 
@@ -53,6 +55,7 @@ def build_graph() -> StateGraph:
     graph.add_conditional_edges("search", decide_after_search, {
         "enough": "filter",
         "not_enough": "search",
+        "no_results": END,
     })
     graph.add_edge("filter", "read")
     graph.add_edge("read", "analyze")

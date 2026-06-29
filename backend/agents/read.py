@@ -19,13 +19,30 @@ async def read_papers(state: ResearchState) -> dict:
         return {"errors": ["no paper to read"], "paper_insights": []}
 
     # 1. put the most relevant paper into db
-    ingested_ids = []
-    for paper in selected:
-        paper_id = paper.get("source_id", "unknown")
-        success = await ingest_paper(paper)
-        if success:
-            ingested_ids.append(paper_id)
-            print(f"    [Read] ingested: {paper_id}")
+    # ingested_ids = []
+    # for paper in selected:
+    #     paper_id = paper.get("source_id", "unknown")
+    #     success = await ingest_paper(paper)
+    #     if success:
+    #         ingested_ids.append(paper_id)
+    #         print(f"    [Read] ingested: {paper_id}")
+
+    # if not ingested_ids:
+    #     return {"errors": ["no papers could be ingested"], "paper_insights": []}
+
+    sem_ingest = asyncio.Semaphore(8)
+    async def ingest_one(paper: dict) -> str | None:
+        async with sem_ingest:
+            paper_id = paper.get("source_id", "unknown")
+            success = await ingest_paper(paper)
+            if success:
+                print(f"    [Read] ingested: {paper_id}")
+                return paper_id
+            return None
+    # 1. put the most relevant paper into db
+    tasks = [ingest_one(p) for p in selected]
+    raw_ids = await asyncio.gather(*tasks, return_exceptions=True)
+    ingested_ids = [rid for rid in raw_ids if isinstance(rid, str)]
 
     if not ingested_ids:
         return {"errors": ["no papers could be ingested"], "paper_insights": []}

@@ -153,6 +153,17 @@ async def start_research_stream(req: ResearchRequest):
             session_id = str(uuid.uuid4())
 
             final_papers = state.get("raw_papers", []) if state else []
+
+            # 搜索阶段结束后，如果一篇论文都没搜到 → 提前终止，不跑后续无用阶段
+            if not final_papers and "papers" not in seen:
+                yield _sse("error", {
+                    "message": (
+                        "未搜到任何论文。可能原因：① 网络无法访问学术 API；"
+                        "② 研究问题过于冷门；③ API 超时。请检查网络或尝试其他问题。"
+                    ),
+                })
+                return
+
             paper_list = [
                 {
                     "title": p.get("title", ""),

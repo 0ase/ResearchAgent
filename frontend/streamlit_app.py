@@ -192,6 +192,7 @@ with tab1:
                         elif event == "error":
                             stage_data_map["error"] = f"❌ {data.get('message', '')}"
                             s["is_running"] = False
+                            final_placeholder.error(data.get("message", "未知错误"))
 
                         # 刷新进度时间线
                         s["current_stage"] = stage

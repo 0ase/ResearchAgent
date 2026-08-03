@@ -14,7 +14,10 @@ async def search_papers(state: ResearchState) -> dict:
     plan = state.get("research_plan", [])
     max_papers = state.get("max_papers", 10)
     if not plan:
-        return {"errors": ["no research plan to return"], "search_round": state["search_round"] + 1}
+        return {
+            "errors": ["no research plan to search"],
+            "search_round": state.get("search_round", 0) + 1,
+        }
 
     queries = [task["sub_query"][:200] for task in plan]
     t0 = time.time()
@@ -58,13 +61,15 @@ async def search_papers(state: ResearchState) -> dict:
         elif isinstance(r, list):
             all_papers.extend(r)
 
-    unique_papers = deduplicate_papers(all_papers)
+    unique_papers = deduplicate_papers(
+        state.get("raw_papers", []) + all_papers
+    )
     elapsed = time.time() - t0
     print(f"[Search] All done in {elapsed:.1f}s → {len(unique_papers)} unique papers from {len(all_papers)} raw\n")
 
     return {
         "raw_papers": unique_papers,
-        "search_round": state["search_round"] + 1,
+        "search_round": state.get("search_round", 0) + 1,
     }
 
 
@@ -75,17 +80,18 @@ def deduplicate_papers(papers: list[dict]) -> list[dict]:
     unique = []
 
     for p in papers:
-        doi = p.get("doi", "").lower()
-        title = p.get("title", "").lower().strip()
+        doi = str(p.get("doi") or "").lower().strip()
+        title = str(p.get("title") or "").lower().strip()
 
         if doi and doi in seen_dois:
             continue
 
-        if title in seen_titles:
+        if title and title in seen_titles:
             continue
 
         if doi:
             seen_dois.add(doi)
-        seen_titles.add(title)
+        if title:
+            seen_titles.add(title)
         unique.append(p)
     return unique

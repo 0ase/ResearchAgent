@@ -13,7 +13,7 @@ async def read_papers(state: ResearchState) -> dict:
     """Read Agent: ingest selected papers → search → per-paper LLM summaries"""
 
     selected = state.get("selected_papers", [])
-    query = state.get("user_query", "")
+    query = state.get("current_task") or state.get("user_query", "")
 
     if not selected:
         return {"errors": ["no paper to read"], "paper_insights": []}

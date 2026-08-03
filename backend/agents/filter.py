@@ -11,10 +11,12 @@ TOP_K = 20
 async def filter_papers(state: ResearchState) -> dict:
     """Filter Agent: LLM scores all papers by abstract -> select top 20"""
     papers = state.get("raw_papers", [])
-    query = state.get("user_query", "")
+    query = state.get("current_task") or state.get("user_query", "")
 
-    if not query:
+    if not papers:
         return {"errors": ["no papers to filter"], "selected_papers": []}
+    if not query:
+        return {"errors": ["no query to filter papers"], "selected_papers": []}
     
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
@@ -44,7 +46,7 @@ async def filter_papers(state: ResearchState) -> dict:
 
         async with sem:
             resp = await client.chat.completions.create(
-                model=settings.light_model,
+                model=settings.light_model if settings.light_model else settings.default_model,
                 max_tokens=2000,
                 messages=[
                     {
@@ -78,12 +80,17 @@ async def filter_papers(state: ResearchState) -> dict:
     all_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     scored = []
-    for r in all_results:
-        if isinstance(r, list):
+    for i, r in enumerate(all_results):
+        if isinstance(r, Exception):
+            print(f"    [Filter] Batch {i} FAILED: {type(r).__name__}: {r}")
+        elif isinstance(r, list):
             scored.extend(r)
+        else:
+            print(f"    [Filter] Batch {i} unexpected type: {type(r).__name__}")
     
     scored.sort(key=lambda p: p.get("relevance_score", 0), reverse=True)
-    selected = scored[:TOP_K]
+    top_k = min(TOP_K, state.get("max_papers", TOP_K))
+    selected = scored[:top_k]
 
     print(f"\n[Filter] Scored {len(scored)} / {len(papers)} papers -> top {len(selected)}")
     for i, p in enumerate(selected[:5], 1):

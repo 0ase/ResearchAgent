@@ -7,7 +7,7 @@ from backend.config import settings
 
 async def orchestrate(state: ResearchState) -> dict:
     """调 LLM 把研究问题拆解成多个子查询"""
-    query = state["user_query"]
+    query = state.get("current_task") or state["user_query"]
 
     system_prompt = """You are an academic research assistant.
 Your task is to break down the user's research question into 3-5 specific sub-queries.
@@ -48,11 +48,17 @@ Only return a JSON array, no other content."""
     for i, q in enumerate(sub_queries, 1):
         print(f"  {i}. {q[:120]}")
 
-    plan = [{"sub_query": q, "status": "pending"} for q in sub_queries]
+    plan = [
+        {"sub_query": str(q).strip(), "status": "pending"}
+        for q in sub_queries
+        if str(q).strip()
+    ]
+    if not plan:
+        plan = [{"sub_query": query, "status": "pending"}]
 
     return {
         "research_plan": plan,
-        "search_round": 1,
+        "search_round": 0,
     }
 
 
@@ -64,7 +70,7 @@ def _parse_json_array(text: str) -> list[str]:
     try:
         result = json.loads(text)
         if isinstance(result, list):
-            return result
+            return [str(item) for item in result if str(item).strip()]
     except json.JSONDecodeError:
         pass
 
@@ -74,7 +80,7 @@ def _parse_json_array(text: str) -> list[str]:
         try:
             result = json.loads(match.group(1))
             if isinstance(result, list):
-                return result
+                return [str(item) for item in result if str(item).strip()]
         except json.JSONDecodeError:
             pass
 
@@ -84,7 +90,7 @@ def _parse_json_array(text: str) -> list[str]:
         try:
             result = json.loads(match.group(0))
             if isinstance(result, list):
-                return result
+                return [str(item) for item in result if str(item).strip()]
         except json.JSONDecodeError:
             pass
 

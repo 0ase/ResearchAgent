@@ -9,6 +9,7 @@ async def synthesize_review(state: ResearchState) -> dict:
     insights = state.get("paper_insights", [])
     analysis = state.get("analysis_report", {})
     query = state.get("user_query", "")
+    objective = state.get("current_task", "")
 
     if not insights:
         return {"errors": ["no insights to synthesize"]}
@@ -56,6 +57,7 @@ async def synthesize_review(state: ResearchState) -> dict:
                 "role": "user",
                 "content": (
                     f"Research question: {query}\n\n"
+                    f"Current writing objective: {objective}\n\n"
                     f"Paper summaries:\n{paper_summaries}\n\n"
                     f"Cross-paper analysis:\n{analysis_text}"
                     f"{revision_note}\n\n"
@@ -70,4 +72,7 @@ async def synthesize_review(state: ResearchState) -> dict:
     return {
         "draft_sections": [{"title": "Literature Review", "content": review}],
         "final_answer": review,
+        "critique": None,
+        "approved": False,
+        "feedback": None,
     }

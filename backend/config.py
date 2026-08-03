@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # 默认模型 轻量模型 嵌入模型
     default_model:str = Field(default="deepseek-v4-pro", description="The default model to use for the API")
-    light_model:str = Field(default="deepseek-v4-flash", description="The light model to use for the API")
+    light_model:str = Field(default="deepseek-chat", description="The light model to use for the API")
     dashscope_api_key: str = Field(default="", env="DASHSCOPE_API_KEY")
     dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     base_url: str = "https://api.deepseek.com"

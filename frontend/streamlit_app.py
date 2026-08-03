@@ -195,9 +195,10 @@ with tab1:
                             final_placeholder.error(data.get("message", "未知错误"))
 
                         # 刷新进度时间线
-                        s["current_stage"] = stage
+                        if stage:
+                            s["current_stage"] = stage
                         with progress_placeholder.container():
-                            render_pipeline(stage, stage_data_map)
+                            render_pipeline(s["current_stage"], stage_data_map)
 
             except httpx.ConnectError:
                 progress_placeholder.error("❌ 无法连接后端，请确认 FastAPI 正在运行")

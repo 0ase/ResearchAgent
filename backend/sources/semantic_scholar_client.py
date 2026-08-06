@@ -1,6 +1,8 @@
 import httpx
 import asyncio
 
+from backend.config import settings
+
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 
 
@@ -12,10 +14,13 @@ async def search_semantic_scholar(query: str, max_results: int = 10, timeout: in
         "limit": min(max_results, 100),
         "fields": "title,authors,abstract,year,externalIds,citationCount,openAccessPdf",
     }
+    headers = {}
+    if settings.semantic_scholar_api_key:
+        headers["x-api-key"] = settings.semantic_scholar_api_key
     for attempt in range(2):
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.get(url, params=params)
+                resp = await client.get(url, params=params, headers=headers)
                 if resp.status_code == 429:
                     wait = 5 * (attempt + 1)
                     print(f"    [s2] 429 rate limited, waiting {wait}s...")

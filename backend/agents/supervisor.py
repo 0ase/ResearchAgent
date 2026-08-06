@@ -59,7 +59,10 @@ def parse_decision(text: str) -> SupervisorDecision:
 
 def fallback_decision(state: ResearchState) -> SupervisorDecision:
     """在 Supervisor 输出无法解析时，使用确定性策略维持工作流。"""
-    if not state.get("paper_insights"):
+    if state.get("retrieval_exhausted") and not state.get("paper_insights"):
+        next_agent = "finish"
+        objective = "结束无法取得论文证据的研究任务"
+    elif not state.get("paper_insights"):
         next_agent = "retrieval"
         objective = "搜索、筛选并阅读与用户问题相关的论文"
     elif not state.get("analysis_report"):
@@ -81,7 +84,65 @@ def fallback_decision(state: ResearchState) -> SupervisorDecision:
         reason="Supervisor 输出无法解析，使用确定性兜底路由",
     )
 
+
+def _decision_command(
+    state: ResearchState,
+    decision: SupervisorDecision,
+) -> Command[ROUTES]:
+    return Command(
+        goto=decision.next_agent,
+        update={
+            "next_agent": decision.next_agent,
+            "current_task": decision.objective,
+            "decision_reason": decision.reason,
+            "finish_reason": (
+                decision.reason
+                if decision.next_agent == "finish"
+                else state.get("finish_reason", "")
+            ),
+            "step_count": state.get("step_count", 0) + 1,
+        },
+    )
+
+
 async def supervisor(state: ResearchState) -> Command[ROUTES]:
+    critique = state.get("critique") or {}
+    if state.get("retrieval_exhausted") and not state.get("paper_insights"):
+        return _decision_command(
+            state,
+            SupervisorDecision(
+                next_agent="finish",
+                objective="结束无法取得论文证据的研究任务",
+                reason="检索已达到轮次上限且没有获得论文",
+            ),
+        )
+
+    if (
+        state.get("draft_sections")
+        and critique
+        and critique.get("approved") is not True
+        and state.get("critique_round", 0) >= settings.max_critique_rounds
+    ):
+        return _decision_command(
+            state,
+            SupervisorDecision(
+                next_agent="finish",
+                objective="返回达到评审轮次上限后的最佳研究综述",
+                reason="已达到最大质量评审轮次",
+            ),
+        )
+
+    if state.get("draft_sections") and critique.get("approved") is True:
+        # 已批准是确定性终止条件，不应再调用一次 Supervisor LLM。
+        return _decision_command(
+            state,
+            SupervisorDecision(
+                next_agent="finish",
+                objective="返回已经通过质量评审的研究综述",
+                reason="当前草稿已通过质量评审",
+            ),
+        )
+
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
@@ -97,31 +158,28 @@ async def supervisor(state: ResearchState) -> Command[ROUTES]:
         messages=[
             {
                 "role": "system",
-                "content": """
-                You are the supervisor of an academic research system.
-
-                Available agents:
-                - retrieval: search, screen and read academic papers
-                - analysis: compare paper evidence and identify agreements or gaps
-                - writer: write or revise the research report
-                - critic: evaluate the report
-                - finish: return the final answer
-
-                Choose exactly one next agent.
-
-                Return only JSON:
-                {
-                "next_agent": "retrieval|analysis|writer|critic|finish",
-                "objective": "specific task for that agent",
-                "reason": "why this agent should run next"
-                }
-                """,
+                "content": (
+                    "You are the supervisor of an academic research system.\n\n"
+                    "Available agents:\n"
+                    "- retrieval: search, screen and read academic papers\n"
+                    "- analysis: compare paper evidence and identify agreements or gaps\n"
+                    "- writer: write or revise the research report\n"
+                    "- critic: evaluate the report\n"
+                    "- finish: return the final answer\n\n"
+                    "Choose exactly one next agent.\n\n"
+                    "Return only JSON:\n"
+                    '{\n'
+                    '  "next_agent": "retrieval|analysis|writer|critic|finish",\n'
+                    '  "objective": "specific task for that agent",\n'
+                    '  "reason": "why this agent should run next"\n'
+                    '}\n'
+                ),
             },
             {
                 "role": "user",
                 "content": json.dumps(summary, ensure_ascii=False),
             },
-        ],
+        ]
     )
 
     try:
@@ -132,17 +190,4 @@ async def supervisor(state: ResearchState) -> Command[ROUTES]:
         raw_decision = fallback_decision(state)
     safe_decision = validate_decision(raw_decision, state)
 
-    return Command(
-        goto=safe_decision.next_agent,
-        update={
-            "next_agent": safe_decision.next_agent,
-            "current_task": safe_decision.objective,
-            "decision_reason": safe_decision.reason,
-            "finish_reason": (
-                safe_decision.reason
-                if safe_decision.next_agent == "finish"
-                else state.get("finish_reason", "")
-            ),
-            "step_count": state.get("step_count", 0) + 1,
-        }
-    )
+    return _decision_command(state, safe_decision)

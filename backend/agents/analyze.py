@@ -23,9 +23,12 @@ async def analyze_papers(state: ResearchState) -> dict:
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
+        timeout=120.0,
+        max_retries=2,
     )
     response = await client.chat.completions.create(
-        model=settings.default_model,
+        model=settings.light_model or settings.default_model,
+        max_tokens=1500,
         messages=[
             {
                 "role": "system",

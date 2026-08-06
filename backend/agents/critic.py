@@ -33,7 +33,8 @@ async def critique_output(state: ResearchState) -> dict:
         max_retries=2,
     )
     response = await client.chat.completions.create(
-        model=settings.default_model,
+        model=settings.light_model or settings.default_model,
+        max_tokens=800,
         messages=[
             {
                 "role": "system",
@@ -65,10 +66,20 @@ async def critique_output(state: ResearchState) -> dict:
 
     text = response.choices[0].message.content
     critique = _parse_json(text)
+    score = critique.get("score", 0)
+    try:
+        numeric_score = float(score)
+    except (TypeError, ValueError):
+        numeric_score = 0
+    approved = critique.get("approved") is True and numeric_score >= 7
+    critique["approved"] = approved
+    if approved:
+        critique["issue_type"] = "none"
+        critique["feedback"] = ""
 
     return {
         "critique": critique,
-        "approved": critique.get("approved", True),
+        "approved": approved,
         "feedback": critique.get("feedback", ""),
         "critique_round": state.get("critique_round", 0) + 1,
         "critique_history": [{                              

@@ -1,5 +1,6 @@
 from backend.agents.contracts import SupervisorDecision
 from backend.agents.state import ResearchState
+from backend.config import settings
 
 def validate_decision(
     decision: SupervisorDecision,
@@ -21,6 +22,34 @@ def validate_decision(
     has_analysis = bool(state.get("analysis_report"))
     has_draft = bool(state.get("draft_sections"))
     critique = state.get("critique") or {}
+
+    if state.get("retrieval_exhausted") and not has_insights:
+        return decision.model_copy(update={
+            "next_agent": "finish",
+            "objective": "结束无法取得论文证据的研究任务",
+            "reason": "检索已耗尽且没有可用论文",
+        })
+
+    # 一旦当前草稿已通过评审，任何新的模型路由决定都必须被终止规则覆盖。
+    # 如果上游证据、分析或草稿发生变化，对应 Agent 会先清空 critique。
+    if has_draft and critique.get("approved") is True:
+        return decision.model_copy(update={
+            "next_agent": "finish",
+            "objective": "返回已经通过质量评审的研究综述",
+            "reason": "当前草稿已通过质量评审",
+        })
+
+    if (
+        has_draft
+        and critique
+        and critique.get("approved") is not True
+        and state.get("critique_round", 0) >= settings.max_critique_rounds
+    ):
+        return decision.model_copy(update={
+            "next_agent": "finish",
+            "objective": "返回达到评审轮次上限后的最佳研究综述",
+            "reason": "已达到最大质量评审轮次",
+        })
 
     if target in {"analysis", "writer"} and not has_insights:
         return decision.model_copy(update={

@@ -1,13 +1,22 @@
 import json
+import asyncio
 import uuid
+from contextlib import suppress
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from backend.agents.graph import build_graph
 from backend.api.schemas import ResearchRequest, ResearchResponse
 from backend.services.session_store import save_session, get_sessions, get_session
 
+from backend.agents.followup import answer_followup
+from backend.api.schemas import FollowUpRequest, FollowUpResponse
+from backend.services.session_store import (
+    add_message,
+    get_message,
+    get_messages,
+)
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -23,6 +32,39 @@ STAGE_LABELS = {
 }
 
 DEFAULT_MAX_STEPS = 12
+SSE_HEARTBEAT_SECONDS = 20
+
+
+async def _with_heartbeats(source):
+    """等待耗时 Agent 时保持 SSE 连接活跃，不取消正在运行的 Graph。"""
+    iterator = source.__aiter__()
+    next_item = asyncio.create_task(iterator.__anext__())
+    try:
+        while True:
+            done, _ = await asyncio.wait(
+                {next_item},
+                timeout=SSE_HEARTBEAT_SECONDS,
+            )
+            if not done:
+                yield None
+                continue
+
+            try:
+                item = next_item.result()
+            except StopAsyncIteration:
+                return
+
+            yield item
+            next_item = asyncio.create_task(iterator.__anext__())
+    finally:
+        if not next_item.done():
+            next_item.cancel()
+            with suppress(asyncio.CancelledError):
+                await next_item
+        close = getattr(iterator, "aclose", None)
+        if close is not None:
+            with suppress(Exception):
+                await close()
 
 
 def _initial_state(req: ResearchRequest) -> dict[str, Any]:
@@ -35,6 +77,10 @@ def _initial_state(req: ResearchRequest) -> dict[str, Any]:
         "max_steps": DEFAULT_MAX_STEPS,
         "status": "running",
         "max_papers": req.max_papers,
+        "previous_queries": [],
+        "search_review": {},
+        "search_gaps": [],
+        "retrieval_exhausted": False,
     }
 
 
@@ -160,6 +206,11 @@ async def start_research(req: ResearchRequest):
     app = build_graph()
     result = await app.ainvoke(_initial_state(req))
     papers = result.get("raw_papers", [])
+    if not papers:
+        raise HTTPException(
+            status_code=422,
+            detail="未搜索到可用论文，请检查网络或调整研究问题。",
+        )
     session_id = str(uuid.uuid4())
     payload = _result_payload(result)
     try:
@@ -187,11 +238,17 @@ async def start_research_stream(req: ResearchRequest):
             last_step = -1
             agent_trace: list[dict] = []
 
-            async for namespace, state in app.astream(
+            graph_stream = app.astream(
                 _initial_state(req),
                 stream_mode="values",
                 subgraphs=True,
-            ):
+            )
+            async for item in _with_heartbeats(graph_stream):
+                if item is None:
+                    yield _sse("heartbeat", {"status": "running"})
+                    continue
+
+                namespace, state = item
                 if not namespace:
                     final_state = state
 
@@ -231,9 +288,9 @@ async def start_research_stream(req: ResearchRequest):
                 return
 
             result_payload = _result_payload(final_state, agent_trace)
-            yield _sse("done", {**result_payload, "session_id": session_id})
 
-            # 保存到历史记录（失败不影响主流程）
+            # 先持久化再发送 done。这样客户端收到 session_id 后可以立刻追问，
+            # 不会遇到会话尚未写入数据库的竞态条件。
             try:
                 await save_session(
                     session_id=session_id,
@@ -242,6 +299,8 @@ async def start_research_stream(req: ResearchRequest):
                 )
             except Exception as e:
                 print(f"[SessionStore] Save failed: {e}")
+
+            yield _sse("done", {**result_payload, "session_id": session_id})
 
         except Exception as e:
             yield _sse("error", {"message": str(e)})
@@ -260,7 +319,9 @@ def _sse(event: str, data: dict) -> str:
 
 
 @router.get("/history")
-async def research_history(limit: int = 20):
+async def research_history(
+    limit: int = Query(default=20, ge=1, le=100),
+):
     """获取历史研究记录列表"""
     sessions = await get_sessions(limit)
     return sessions
@@ -274,3 +335,90 @@ async def research_detail(session_id: str):
         from fastapi.responses import JSONResponse
         return JSONResponse({"error": "session not found"}, status_code=404)
     return session
+
+
+@router.get("/{session_id}/messages")
+async def research_messages(
+    session_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """获取某次研究的对话记录，按时间正序返回。"""
+    session = await get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Research session not found")
+    return await get_messages(session_id=session_id, limit=limit)
+
+@router.post(
+    "/{session_id}/chat",
+    response_model=FollowUpResponse,
+)
+async def followup_chat(
+    session_id: str,
+    req: FollowUpRequest,
+):
+    # 1. 从数据库读取原始研究会话
+    session = await get_session(session_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Research session not found",
+        )
+
+    assistant_message_id = f"{req.message_id}-assistant"
+
+    # 客户端超时后可能重试同一个 message_id。若回答已经落库，直接返回，
+    # 避免重复调用模型、产生两份答案。
+    existing_answer = await get_message(assistant_message_id)
+    if existing_answer is not None:
+        if existing_answer["session_id"] != session_id:
+            raise HTTPException(status_code=409, detail="message_id already exists")
+        return FollowUpResponse(
+            session_id=session_id,
+            answer=existing_answer["content"],
+            citations=existing_answer.get("citations", []),
+            mode="answer_from_context",
+        )
+
+    existing_question = await get_message(req.message_id)
+    if existing_question is not None and (
+        existing_question["session_id"] != session_id
+        or existing_question["content"] != req.message
+    ):
+        raise HTTPException(status_code=409, detail="message_id already exists")
+
+    # 历史上下文不包含本次问题；question 会在 Follow-up Agent 的提示词末尾
+    # 单独出现，避免同一句话重复两次。
+    messages = await get_messages(session_id=session_id, limit=20)
+
+    # 2. 保存用户追问
+    await add_message(
+        session_id=session_id,
+        message_id=req.message_id,
+        role="user",
+        content=req.message,
+        citations=[],
+    )
+
+    # 3. 调用 Follow-up Agent
+    result = await answer_followup(
+        question=req.message,
+        session=session,
+        messages=messages,
+    )
+
+    # 4. 保存助手回答
+    await add_message(
+        session_id=session_id,
+        message_id=assistant_message_id,
+        role="assistant",
+        content=result["answer"],
+        citations=result.get("citations", []),
+    )
+
+    return FollowUpResponse(
+        session_id=session_id,
+        answer=result["answer"],
+        citations=result.get("citations", []),
+        mode=result.get("mode", "answer_from_context"),
+    )

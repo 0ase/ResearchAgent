@@ -1,7 +1,15 @@
-import os
+import hashlib
 from pathlib import Path
+
 import httpx
+
 from backend.config import settings
+
+MAX_PDF_BYTES = 50 * 1024 * 1024
+
+
+def _is_pdf(content: bytes) -> bool:
+    return content.lstrip().startswith(b"%PDF")
 
 async def download_pdf(paper: dict) -> str | None:
     """download a PDF of the paper, return the path of the file"""
@@ -10,11 +18,22 @@ async def download_pdf(paper: dict) -> str | None:
     cache_dir = Path(settings.paper_cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    source_id = paper.get("source_id", "unknown").replace(":", "_")
-    filepath = cache_dir / f"{source_id}.pdf"
+    cache_key = str(
+        paper.get("source_id")
+        or paper.get("doi")
+        or paper.get("pdf_url")
+        or paper.get("title")
+        or "unknown"
+    )
+    safe_id = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()
+    filepath = cache_dir / f"{safe_id}.pdf"
 
     if filepath.exists():
-        return str(filepath)
+        try:
+            if _is_pdf(filepath.read_bytes()[:16]):
+                return str(filepath)
+        except OSError:
+            pass
     
     pdf_url = paper.get("pdf_url", "")
     if not pdf_url:
@@ -27,7 +46,10 @@ async def download_pdf(paper: dict) -> str | None:
         async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
             resp = await client.get(pdf_url)
             resp.raise_for_status()
-            filepath.write_bytes(resp.content)
+            content = resp.content
+            if not content or len(content) > MAX_PDF_BYTES or not _is_pdf(content[:16]):
+                return None
+            filepath.write_bytes(content)
             return str(filepath)
     except Exception:
         return None

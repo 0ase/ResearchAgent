@@ -4,10 +4,19 @@
 """
 import streamlit as st
 import httpx
+import uuid
 
-from utils.api_client import health_check, stream_research, parse_sse, get_history, get_session
-from utils.state import ensure_session, reset_session
-from components.progress import (
+from frontend.utils.api_client import (
+    ask_followup,
+    get_chat_messages,
+    get_history,
+    get_session,
+    health_check,
+    parse_sse,
+    stream_research,
+)
+from frontend.utils.state import ensure_session, reset_session
+from frontend.components.progress import (
     render_pipeline,
     stage_detail_orchestrate,
     stage_detail_search,
@@ -17,14 +26,15 @@ from components.progress import (
     stage_detail_synthesize,
     stage_detail_critic,
 )
-from components.paper_table import render_paper_table
-from components.report_viewer import render_report
-from components.export import render_export, render_copy_block
+from frontend.components.paper_table import render_paper_table
+from frontend.components.report_viewer import render_report
+from frontend.components.export import render_export, render_copy_block
 
 # ============================================================
 # Page Setup
 # ============================================================
 st.set_page_config(page_title="多Agent学术研究助手", page_icon="📚", layout="wide")
+s = ensure_session()
 
 # ============================================================
 # Sidebar
@@ -32,7 +42,11 @@ st.set_page_config(page_title="多Agent学术研究助手", page_icon="📚", la
 with st.sidebar:
     st.title("⚙️ 配置")
 
-    max_papers = st.slider("最大论文数", min_value=5, max_value=50, value=20, step=5)
+    if st.button("➕ 新建研究", use_container_width=True):
+        reset_session()
+        st.rerun()
+
+    max_papers = st.slider("最大论文数", min_value=5, max_value=15, value=8, step=1)
 
     st.divider()
 
@@ -68,6 +82,7 @@ with st.sidebar:
                     s["paper_insights"] = result.get("paper_insights", [])
                     s["analysis"] = result.get("analysis", {})
                     s["critique"] = result.get("critique", {})
+                    s["messages"] = get_chat_messages(item["session_id"])
                     s["current_stage"] = "critic"
                     st.rerun()
     else:
@@ -90,9 +105,40 @@ tab1, tab2 = st.tabs(["🔬 研究", "📋 论文详情"])
 # Tab 1: 研究
 # ============================================================
 with tab1:
-    query = st.chat_input("输入你的研究问题，例如：Transformer 注意力机制的最新进展有哪些？")
+    input_hint = (
+        "继续追问这份研究报告……"
+        if s.get("completed") and s.get("session_id")
+        else "输入你的研究问题，例如：Transformer 注意力机制的最新进展有哪些？"
+    )
+    query = st.chat_input(input_hint)
 
-    s = ensure_session()
+    # 已完成研究后，聊天框代表“继续追问”，不会清空当前研究。
+    if query and s.get("completed") and s.get("session_id"):
+        message_id = str(uuid.uuid4())
+        s.setdefault("messages", []).append(
+            {
+                "message_id": message_id,
+                "role": "user",
+                "content": query,
+                "citations": [],
+            }
+        )
+        try:
+            with st.spinner("Follow-up Agent 正在回答……"):
+                followup = ask_followup(s["session_id"], query, message_id)
+            s["messages"].append(
+                {
+                    "message_id": f"{message_id}-assistant",
+                    "role": "assistant",
+                    "content": followup.get("answer", ""),
+                    "citations": followup.get("citations", []),
+                }
+            )
+        except httpx.HTTPStatusError as exc:
+            st.error(f"追问失败：后端返回 {exc.response.status_code}")
+        except httpx.RequestError as exc:
+            st.error(f"追问失败：无法连接后端（{exc}）")
+        query = None
 
     if not query:
         # 没有新输入 → 展示已有结果（如果有的话）
@@ -103,6 +149,24 @@ with tab1:
             st.divider()
             render_export(s["final_answer"], s.get("session_id", "report"))
             render_copy_block(s["final_answer"])
+
+            followup_messages = [
+                message
+                for message in s.get("messages", [])
+                if ":initial:" not in message.get("message_id", "")
+            ]
+            if followup_messages:
+                st.divider()
+                st.markdown("## 💬 追问记录")
+                for message in followup_messages:
+                    role = message.get("role", "assistant")
+                    if role not in {"user", "assistant"}:
+                        continue
+                    with st.chat_message(role):
+                        st.markdown(message.get("content", ""))
+                        citations = message.get("citations", [])
+                        if citations:
+                            st.caption("引用来源：" + "、".join(citations))
         elif not s.get("is_running"):
             st.info("👆 在上方输入研究问题开始")
     else:
@@ -215,9 +279,9 @@ with tab2:
     selected = s.get("selected_papers", [])
     insights = s.get("paper_insights", [])
 
-    # 选中的 Top 20 论文（含 PDF 链接）
+    # 筛选后交给 Read Agent 的论文
     if selected:
-        st.subheader("⭐ 筛选后的论文 (Top 20)")
+        st.subheader(f"⭐ 筛选后的论文（{len(selected)} 篇）")
         st.caption("LLM 根据与问题的相关性评分选出")
         render_paper_table(selected)
         st.divider()

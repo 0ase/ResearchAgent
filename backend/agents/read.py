@@ -5,15 +5,16 @@ from openai import AsyncOpenAI
 from backend.agents.state import ResearchState
 from backend.config import settings
 from backend.rag.ingestion import ingest_paper
+from backend.rag.embeddings import embed_single
 from backend.rag.vector_store import get_collection
-from backend.rag.hybrid_search import hybrid_search
 
 
 async def read_papers(state: ResearchState) -> dict:
     """Read Agent: ingest selected papers → search → per-paper LLM summaries"""
-
-    selected = state.get("selected_papers", [])
-    query = state.get("current_task") or state.get("user_query", "")
+    max_papers_to_read = min(state.get("max_papers", 8), 15)
+    selected = state.get("selected_papers", [])[:max_papers_to_read]
+    query = state.get("user_query", "").strip()
+    objective = state.get("current_task", "").strip()
 
     if not selected:
         return {"errors": ["no paper to read"], "paper_insights": []}
@@ -47,19 +48,38 @@ async def read_papers(state: ResearchState) -> dict:
     if not ingested_ids:
         return {"errors": ["no papers could be ingested"], "paper_insights": []}
 
-    # 2. use paper_id to fetch all chunks of a paper from db
+    # 2. 每篇论文只读取与原始问题最相关的若干切片，避免把整篇 PDF
+    # 全部塞进模型上下文。
     collection = get_collection()
     paper_chunks = {}
+    try:
+        query_embedding = await embed_single(query)
+    except Exception as exc:
+        print(f"    [Read] query embedding failed, falling back to first chunks: {exc}")
+        query_embedding = None
 
     for pid in ingested_ids:
         try:
             data = collection.get(where={"paper_id": pid})
-            docs = data.get("documents", [])
+            docs = data.get("documents") or []
             if docs:
+                top_k = min(settings.retrieval_top_k, len(docs))
+                relevant_docs = docs[:top_k]
+
+                if query_embedding is not None:
+                    result = collection.query(
+                        query_embeddings=[query_embedding],
+                        where={"paper_id": pid},
+                        n_results=top_k,
+                        include=["documents", "metadatas"],
+                    )
+                    queried_docs = (result.get("documents") or [[]])[0]
+                    if queried_docs:
+                        relevant_docs = queried_docs
+
                 paper_chunks[pid] = [
-                    {"content": d, "chunk_index": i}
-                    # for i, d in enumerate(docs[:10])
-                    for i, d in enumerate(docs)
+                    {"content": document, "chunk_index": index}
+                    for index, document in enumerate(relevant_docs)
                 ]
         except Exception as e:
             print(f"    [Read] fetch chunks failed for {pid}: {e}")
@@ -83,6 +103,7 @@ async def read_papers(state: ResearchState) -> dict:
         )
         prompt = (
             f"Question: {query}\n\n"
+            f"Current reading objective: {objective or 'Extract evidence relevant to the question.'}\n\n"
             f"Below are excerpts from a paper. "
             f"Summarize the paper's contribution to answer the question concisely. "
             f"Include specific methods, result, or claims.\n\n"
@@ -91,15 +112,16 @@ async def read_papers(state: ResearchState) -> dict:
         )
         async with sem:
             resp = await client.chat.completions.create(
-                model=settings.default_model,
-                max_tokens=1500,
+                model=settings.light_model or settings.default_model,
+                max_tokens=1000,
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "You read academic paper excerpts."
-                            "Summarize the key points concisely, cite specific methods/results/claims."
-                            "Respond in same language as the user's question."
+                            "You read academic paper excerpts. "
+                            "Summarize the key points concisely and cite specific "
+                            "methods, results, or claims. "
+                            "Respond in the same language as the user's question. "
                             "Return plain text only."
                         ),
                     },
@@ -118,17 +140,25 @@ async def read_papers(state: ResearchState) -> dict:
     tasks = [summarize_one(pid, chs) for pid, chs in paper_chunks.items()]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
     per_paper = [r for r in raw_results if isinstance(r, dict)]
+    summary_errors = [
+        f"paper summary failed: {type(result).__name__}: {result}"
+        for result in raw_results
+        if isinstance(result, Exception)
+    ]
     print(f"[Read] LLM summarized {len(per_paper)}/{len(tasks)} papers")
 
 
 
-    return {
+    update = {
         "paper_insights": per_paper,
         "final_answer": "\n\n".join([
             f"**{ins['source']}**: {ins['answer']}"
             for ins in per_paper
         ]) if per_paper else "",
     }
+    if summary_errors:
+        update["errors"] = summary_errors
+    return update
 
 
 def _parse_paper_summaries(text: str, paper_index: dict, query: str) -> list[dict]:

@@ -30,3 +30,9 @@ class ResearchState(TypedDict, total=False):
     status: str
     finish_reason: str
     max_papers: int
+
+    previous_queries: list[str]
+    search_review: dict
+    search_gaps: list[str]
+    search_feedback: str
+    retrieval_exhausted: bool

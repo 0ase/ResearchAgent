@@ -6,12 +6,12 @@ from backend.agents.state import ResearchState
 from backend.config import settings
 
 BATCH_SIZE = 25
-TOP_K = 20
 
 async def filter_papers(state: ResearchState) -> dict:
     """Filter Agent: LLM scores all papers by abstract -> select top 20"""
     papers = state.get("raw_papers", [])
-    query = state.get("current_task") or state.get("user_query", "")
+    query = state.get("user_query", "").strip()
+    objective = state.get("current_task", "").strip()
 
     if not papers:
         return {"errors": ["no papers to filter"], "selected_papers": []}
@@ -37,6 +37,7 @@ async def filter_papers(state: ResearchState) -> dict:
 
         prompt = (
             f"Research question: {query}\n\n"
+            f"Current screening objective: {objective or 'Select the most relevant evidence.'}\n\n"
             f"Below are {len(batch)} papers. For each, score relevance 1-5 "
             f"(5=highly relevant). Consider: topic match, methodology, recency.\n\n"
             f"{papers_text}\n\n"
@@ -89,8 +90,8 @@ async def filter_papers(state: ResearchState) -> dict:
             print(f"    [Filter] Batch {i} unexpected type: {type(r).__name__}")
     
     scored.sort(key=lambda p: p.get("relevance_score", 0), reverse=True)
-    top_k = min(TOP_K, state.get("max_papers", TOP_K))
-    selected = scored[:top_k]
+    max_papers_to_read = min(state.get("max_papers", 8), 15,)
+    selected = scored[:max_papers_to_read]
 
     print(f"\n[Filter] Scored {len(scored)} / {len(papers)} papers -> top {len(selected)}")
     for i, p in enumerate(selected[:5], 1):

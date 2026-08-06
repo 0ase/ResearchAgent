@@ -72,7 +72,7 @@ async def main():
         "step_count": 0,
         "max_steps": 12,
         "status": "running",
-        "max_papers": 10,
+        "max_papers": 15,
     })
     print(result.get("final_answer", ""))
 

@@ -9,15 +9,78 @@ from backend.rag.embeddings import embed_single
 from backend.rag.vector_store import get_collection
 
 
+def _merge_paper_insights(
+    selected_papers: list[dict],
+    existing_insights: list[dict],
+    new_insights: list[dict],
+    limit: int,
+) -> list[dict]:
+    """Merge reading rounds without duplicates, following current paper ranking."""
+    by_source: dict[str, dict] = {}
+    for insight in existing_insights + new_insights:
+        source = str(insight.get("source") or "").strip()
+        if source:
+            by_source[source] = insight
+
+    merged: list[dict] = []
+    used_sources: set[str] = set()
+
+    # Current Filter ranking decides which evidence is retained after a new search.
+    for paper in selected_papers:
+        source = str(paper.get("source_id") or "").strip()
+        insight = by_source.get(source)
+        if insight is not None and source not in used_sources:
+            merged.append(insight)
+            used_sources.add(source)
+        if len(merged) >= limit:
+            return merged
+
+    # If a newly selected paper failed to parse, retain older valid evidence rather
+    # than silently shrinking the evidence pool.
+    for insight in existing_insights + new_insights:
+        source = str(insight.get("source") or "").strip()
+        if source and source not in used_sources:
+            merged.append(insight)
+            used_sources.add(source)
+        if len(merged) >= limit:
+            break
+
+    return merged
+
+
 async def read_papers(state: ResearchState) -> dict:
     """Read Agent: ingest selected papers → search → per-paper LLM summaries"""
-    max_papers_to_read = min(state.get("max_papers", 8), 15)
+    max_papers_to_read = min(state.get("max_papers", 15), 15)
     selected = state.get("selected_papers", [])[:max_papers_to_read]
+    existing_insights = state.get("paper_insights", [])
+    existing_sources = {
+        str(insight.get("source") or "").strip()
+        for insight in existing_insights
+        if insight.get("source")
+    }
+    papers_to_read = [
+        paper
+        for paper in selected
+        if str(paper.get("source_id") or "").strip() not in existing_sources
+    ]
     query = state.get("user_query", "").strip()
     objective = state.get("current_task", "").strip()
 
     if not selected:
-        return {"errors": ["no paper to read"], "paper_insights": []}
+        return {
+            "errors": ["no paper to read"],
+            "paper_insights": existing_insights[:max_papers_to_read],
+        }
+
+    if not papers_to_read:
+        return {
+            "paper_insights": _merge_paper_insights(
+                selected,
+                existing_insights,
+                [],
+                max_papers_to_read,
+            )
+        }
 
     # 1. put the most relevant paper into db
     # ingested_ids = []
@@ -41,12 +104,20 @@ async def read_papers(state: ResearchState) -> dict:
                 return paper_id
             return None
     # 1. put the most relevant paper into db
-    tasks = [ingest_one(p) for p in selected]
+    tasks = [ingest_one(p) for p in papers_to_read]
     raw_ids = await asyncio.gather(*tasks, return_exceptions=True)
     ingested_ids = [rid for rid in raw_ids if isinstance(rid, str)]
 
     if not ingested_ids:
-        return {"errors": ["no papers could be ingested"], "paper_insights": []}
+        return {
+            "errors": ["no new papers could be ingested"],
+            "paper_insights": _merge_paper_insights(
+                selected,
+                existing_insights,
+                [],
+                max_papers_to_read,
+            ),
+        }
 
     # 2. 每篇论文只读取与原始问题最相关的若干切片，避免把整篇 PDF
     # 全部塞进模型上下文。
@@ -85,7 +156,15 @@ async def read_papers(state: ResearchState) -> dict:
             print(f"    [Read] fetch chunks failed for {pid}: {e}")
 
     if not paper_chunks:
-        return {"paper_insights": []}
+        return {
+            "errors": ["no readable chunks found for newly selected papers"],
+            "paper_insights": _merge_paper_insights(
+                selected,
+                existing_insights,
+                [],
+                max_papers_to_read,
+            ),
+        }
 
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
@@ -94,7 +173,9 @@ async def read_papers(state: ResearchState) -> dict:
         max_retries=2,
     )
 
-    sem = asyncio.Semaphore(3)
+    # Fifteen papers would otherwise require five serial LLM waves. Five concurrent
+    # summaries keep the larger evidence target practical without unbounded fan-out.
+    sem = asyncio.Semaphore(settings.read_concurrency)
 
     async def summarize_one(pid: str, chs: list[dict]) -> dict:
         chunks_text = "\n\n".join(
@@ -149,12 +230,18 @@ async def read_papers(state: ResearchState) -> dict:
 
 
 
+    merged_insights = _merge_paper_insights(
+        selected,
+        existing_insights,
+        per_paper,
+        max_papers_to_read,
+    )
     update = {
-        "paper_insights": per_paper,
+        "paper_insights": merged_insights,
         "final_answer": "\n\n".join([
             f"**{ins['source']}**: {ins['answer']}"
-            for ins in per_paper
-        ]) if per_paper else "",
+            for ins in merged_insights
+        ]) if merged_insights else "",
     }
     if summary_errors:
         update["errors"] = summary_errors

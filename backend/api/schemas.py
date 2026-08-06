@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 # 定义http请求的格式，返回的参数类型
 class ResearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000, description="research question")
-    max_papers: int = Field(default=8, ge=3, le=15)
+    max_papers: int = Field(default=15, ge=3, le=15)
 
     @field_validator("query")
     @classmethod

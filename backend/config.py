@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     search_results_per_source: int = Field(default=6, ge=3, le=20,)
     max_candidate_papers: int = Field(default=40, ge=10, le=100,)
     max_critique_rounds: int = Field(default=2, ge=1, le=3)
+    writer_max_tokens: int = Field(default=8000, ge=1000, le=16000)
+    writer_min_characters: int = Field(default=5000, ge=1000, le=20000)
+    writer_continuation_tokens: int = Field(default=3000, ge=500, le=8000)
+    read_concurrency: int = Field(default=5, ge=1, le=10)
 
     @model_validator(mode="after")
     def validate_chunk_window(self):

@@ -94,6 +94,7 @@ def _paper_payload(paper: dict) -> dict:
         "source_id": paper.get("source_id", ""),
         "published_date": str(paper.get("published_date", "")),
         "citation_count": paper.get("citation_count", 0),
+        "doi": paper.get("doi", ""),
         "relevance_score": paper.get("relevance_score", 0),
         "relevance_reason": paper.get("relevance_reason", ""),
     }
@@ -197,6 +198,9 @@ def _result_payload(state: dict, agent_trace: list[dict] | None = None) -> dict:
         "analysis": state.get("analysis_report") or {},
         "agent_trace": agent_trace or [],
         "finish_reason": state.get("finish_reason", ""),
+        "writer_finish_reason": state.get("writer_finish_reason", ""),
+        "writer_generation_attempts": state.get("writer_generation_attempts", 0),
+        "writer_incomplete": state.get("writer_incomplete", False),
     }
 
 

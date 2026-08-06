@@ -9,6 +9,9 @@ class StoredResearchResult(TypedDict, total=False):
     analysis: dict[str, Any]
     agent_trace: list[dict[str, Any]]
     finish_reason: str
+    writer_finish_reason: str
+    writer_generation_attempts: int
+    writer_incomplete: bool
 
 class StoredSession(TypedDict, total=False):
     session_id: str

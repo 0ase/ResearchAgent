@@ -2,6 +2,7 @@ import json
 import re
 
 from openai import AsyncOpenAI
+from backend.agents.report_quality import find_report_completeness_issues
 from backend.agents.state import ResearchState
 from backend.config import settings
 
@@ -34,7 +35,7 @@ async def critique_output(state: ResearchState) -> dict:
     )
     response = await client.chat.completions.create(
         model=settings.light_model or settings.default_model,
-        max_tokens=800,
+        max_tokens=1200,
         messages=[
             {
                 "role": "system",
@@ -42,7 +43,9 @@ async def critique_output(state: ResearchState) -> dict:
                     "You are a rigorous academic reviewer. Evaluate the literature "
                     "review against the original research question. Check for: "
                     "coverage gaps, logical consistency, citation accuracy, "
-                    "relevance to the query, and writing quality.\n"
+                    "relevance to the query, writing quality, report completeness, "
+                    "and whether the discussion is sufficiently detailed rather "
+                    "than a paper-by-paper list.\n"
                     "Return ONLY valid JSON with the following structure:\n"
                     '{\n'
                     '  "score": 1-10,\n'
@@ -71,9 +74,34 @@ async def critique_output(state: ResearchState) -> dict:
         numeric_score = float(score)
     except (TypeError, ValueError):
         numeric_score = 0
-    approved = critique.get("approved") is True and numeric_score >= 7
+    completeness_issues = find_report_completeness_issues(
+        review_text,
+        state.get("writer_finish_reason"),
+    )
+    approved = (
+        critique.get("approved") is True
+        and numeric_score >= 7
+        and not completeness_issues
+    )
     critique["approved"] = approved
-    if approved:
+    if completeness_issues:
+        issues = list(critique.get("issues") or [])
+        for issue in completeness_issues:
+            if issue not in issues:
+                issues.append(issue)
+        critique["issues"] = issues
+        if critique.get("issue_type") in {None, "", "none"}:
+            critique["issue_type"] = "writing_quality"
+        completeness_feedback = (
+            "报告未满足完整性硬性要求："
+            + "；".join(completeness_issues)
+            + "。请返回一份完整扩展后的报告，不能只提供补丁。"
+        )
+        existing_feedback = str(critique.get("feedback") or "").strip()
+        critique["feedback"] = "\n".join(
+            item for item in (existing_feedback, completeness_feedback) if item
+        )
+    elif approved:
         critique["issue_type"] = "none"
         critique["feedback"] = ""
 

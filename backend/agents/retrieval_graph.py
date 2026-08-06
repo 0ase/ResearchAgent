@@ -15,9 +15,11 @@ def invalidate_downstream(_: ResearchState) -> dict:
         "analysis_report": None,
         "draft_sections": [],
         "critique": None,
-        "feedback": None,
         "approved": False,
         "final_answer": None,
+        "writer_finish_reason": "",
+        "writer_generation_attempts": 0,
+        "writer_incomplete": False,
         "retrieval_exhausted": False,
     }
 

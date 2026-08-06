@@ -46,7 +46,7 @@ with st.sidebar:
         reset_session()
         st.rerun()
 
-    max_papers = st.slider("最大论文数", min_value=5, max_value=15, value=8, step=1)
+    max_papers = st.slider("最大论文数", min_value=5, max_value=15, value=15, step=1)
 
     st.divider()
 

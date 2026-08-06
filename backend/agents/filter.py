@@ -90,7 +90,7 @@ async def filter_papers(state: ResearchState) -> dict:
             print(f"    [Filter] Batch {i} unexpected type: {type(r).__name__}")
     
     scored.sort(key=lambda p: p.get("relevance_score", 0), reverse=True)
-    max_papers_to_read = min(state.get("max_papers", 8), 15,)
+    max_papers_to_read = min(state.get("max_papers", 15), 15)
     selected = scored[:max_papers_to_read]
 
     print(f"\n[Filter] Scored {len(scored)} / {len(papers)} papers -> top {len(selected)}")

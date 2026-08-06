@@ -21,7 +21,7 @@ def health_check() -> bool:
 
 def stream_research(
     query: str,
-    max_papers: int = 8,
+    max_papers: int = 15,
 ) -> AbstractContextManager[httpx.Response]:
     """发起 SSE 流式研究请求，返回 httpx Response 对象"""
     return httpx.stream(

@@ -1,6 +1,8 @@
 import asyncio
 import httpx
 
+from backend.sources.errors import SourceSearchError
+
 BASE_URL = "https://api.crossref.org/works"
 
 
@@ -18,23 +20,54 @@ async def search_crossref(query: str, max_results: int = 10, timeout: int = 30) 
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 429:
-                    wait = 5 * (attempt + 1)
-                    print(f"    [crossref] 429 rate limited, waiting {wait}s...")
-                    await asyncio.sleep(wait)
-                    continue
+                    if attempt == 0:
+                        wait = 5 * (attempt + 1)
+                        print(f"    [crossref] 429 rate limited, waiting {wait}s...")
+                        await asyncio.sleep(wait)
+                        continue
+                    raise SourceSearchError(
+                        "crossref",
+                        "SOURCE_RATE_LIMITED",
+                        "crossref rate limit reached",
+                    )
                 resp.raise_for_status()
                 return _parse_response(resp.json())
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             if attempt == 0:
                 print(f"    [crossref] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
             print(f"    [crossref] timeout after retry, giving up")
-        except Exception as e:
+            raise SourceSearchError(
+                "crossref",
+                "SOURCE_TIMEOUT",
+                "crossref request timed out",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [crossref] error: {type(e).__name__}: {e}")
+            raise SourceSearchError(
+                "crossref",
+                "SOURCE_HTTP_ERROR",
+                "crossref returned an HTTP error",
+            ) from exc
+        except (TypeError, ValueError) as exc:
+            raise SourceSearchError(
+                "crossref",
+                "SOURCE_RESPONSE_INVALID",
+                "crossref returned an invalid response",
+            ) from exc
+        except Exception as exc:
+            if attempt == 0:
+                await asyncio.sleep(2)
+                continue
+            print(f"    [crossref] error: {type(exc).__name__}: {exc}")
+            raise SourceSearchError(
+                "crossref",
+                "SOURCE_HTTP_ERROR",
+                "crossref request failed",
+            ) from exc
     return []
 
 

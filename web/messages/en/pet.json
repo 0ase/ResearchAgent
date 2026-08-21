@@ -1,0 +1,18 @@
+{
+  "openSettings": "Open settings",
+  "hint": "Drag to move, click for settings",
+  "accessibleLabel": "Research companion: {state}; open settings",
+  "states": {
+    "idle": "idle",
+    "orchestrate": "planning",
+    "search": "searching",
+    "filter": "filtering papers",
+    "read": "reading",
+    "analyze": "analyzing",
+    "synthesize": "synthesizing",
+    "critic": "reviewing",
+    "dragging": "being moved",
+    "completed": "research completed",
+    "failed": "research stopped"
+  }
+}

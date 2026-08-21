@@ -1,0 +1,70 @@
+{
+  "title": "Settings",
+  "description": "Configure the DeepSeek model, defaults for new research tasks, and your research companion.",
+  "back": "Back to research",
+  "save": "Save settings",
+  "restoreDefaults": "Restore defaults",
+  "saved": "Settings saved",
+  "deepseek": {
+    "sectionTitle": "Model and API",
+    "sectionDescription": "Manage the DeepSeek API key used by the local research Agent.",
+    "setupTitle": "Configure a DeepSeek API key",
+    "setupDescription": "Save a DeepSeek API key before first use. The service does not need to restart.",
+    "deepSeekOnly": "This field requires an API key created for DeepSeek models. The key is stored in this project's local .env file.",
+    "providerLabel": "Model provider",
+    "defaultModelLabel": "Default model",
+    "apiKeyLabel": "DeepSeek API key",
+    "setupPlaceholder": "Enter your DeepSeek API key",
+    "replaceKeyLabel": "Replace API key",
+    "replaceKeyPlaceholder": "Enter a new DeepSeek API key",
+    "keyNotReturned": "For security, the current key is never read back or displayed. Leaving this blank keeps the existing configuration.",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "checking": "Checking the DeepSeek configuration…",
+    "saveAndContinue": "Save and continue",
+    "saving": "Saving…",
+    "updateKey": "Update API key",
+    "updating": "Updating…",
+    "updated": "API key updated",
+    "saveError": "The API key could not be saved. Check the local backend and try again.",
+    "openPlatform": "Open the DeepSeek API platform",
+    "unavailableTitle": "Model configuration unavailable",
+    "unavailableDescription": "The local backend is required to check or save the DeepSeek API key.",
+    "unavailableError": "The local backend could not be reached. Start it and try again.",
+    "retry": "Try again",
+    "retrying": "Trying again…"
+  },
+  "research": {
+    "title": "Research defaults",
+    "description": "These values initialize new tasks. Changes made in the composer only affect that task.",
+    "maxPapers": "Maximum papers",
+    "maxPapersError": "Enter a whole number from 1 to 50.",
+    "sources": "Default sources",
+    "sourcesError": "Select at least one source.",
+    "source": {
+      "arxiv": "arXiv",
+      "semantic_scholar": "Semantic Scholar",
+      "pubmed": "PubMed",
+      "crossref": "Crossref"
+    }
+  },
+  "pet": {
+    "title": "Research companion",
+    "description": "The companion reflects the active Agent stage and opens this page when clicked.",
+    "visible": "Show companion",
+    "size": "Size",
+    "motion": "Motion",
+    "dragLocked": "Lock dragging",
+    "resetPosition": "Reset to bottom-right",
+    "shown": "shown",
+    "hidden": "hidden",
+    "sizes": { "small": "Small", "medium": "Medium", "large": "Large" },
+    "motions": {
+      "system": "Follow system",
+      "full": "Full",
+      "reduced": "Reduced",
+      "static": "Static"
+    },
+    "preview": "Preview: {visibility}, {size}, {motion} motion. Changes apply after saving."
+  }
+}

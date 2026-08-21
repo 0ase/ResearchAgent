@@ -11,12 +11,19 @@ from backend.config import settings
 BATCH_SIZE = 10  # DashScope limit: max 10 inputs per request
 
 
+class EmbeddingUnavailableError(RuntimeError):
+    pass
+
+
 async def embed_texts(texts: list[str]) -> list[list[float]]:
     """Convert a batch of texts to embedding vectors via DashScope.
 
     Splits into batches of BATCH_SIZE to respect API limits.
     Retries on network errors up to 3 times.
     """
+    if not settings.dashscope_api_key:
+        raise EmbeddingUnavailableError("DASHSCOPE_API_KEY is not configured")
+
     client = AsyncOpenAI(
         api_key=settings.dashscope_api_key,
         base_url=settings.dashscope_base_url,
@@ -34,12 +41,13 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
                 sorted_data = sorted(response.data, key=lambda x: x.index)
                 all_embeddings.extend([item.embedding for item in sorted_data])
                 break
-            except Exception:
+            except Exception as exc:
                 if attempt < 2:
                     await asyncio.sleep(3 * (attempt + 1))
                 else:
-                    # last attempt failed — return zeros to not crash pipeline
-                    all_embeddings.extend([[0.0] * 1024 for _ in batch])
+                    raise EmbeddingUnavailableError(
+                        "embedding provider request failed"
+                    ) from exc
 
     return all_embeddings
 

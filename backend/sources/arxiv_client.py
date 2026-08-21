@@ -2,6 +2,8 @@ import xml.etree.ElementTree as ET
 import httpx
 import asyncio
 
+from backend.sources.errors import SourceSearchError
+
 
 async def search_arxiv(query: str, max_results: int = 10, timeout: int = 30) -> list[dict]:
     """use arxiv API to get the raw papers"""
@@ -19,23 +21,50 @@ async def search_arxiv(query: str, max_results: int = 10, timeout: int = 30) -> 
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 429:
-                    wait = 5 * (attempt + 1)
-                    print(f"    [arxiv] 429 rate limited, waiting {wait}s...")
-                    await asyncio.sleep(wait)
-                    continue
+                    if attempt == 0:
+                        wait = 5 * (attempt + 1)
+                        print(f"    [arxiv] 429 rate limited, waiting {wait}s...")
+                        await asyncio.sleep(wait)
+                        continue
+                    raise SourceSearchError(
+                        "arxiv",
+                        "SOURCE_RATE_LIMITED",
+                        "arxiv rate limit reached",
+                    )
                 resp.raise_for_status()
                 return parse_arxiv_response(resp.text)
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             if attempt == 0:
                 print(f"    [arxiv] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
             print(f"    [arxiv] timeout after retry, giving up")
-        except Exception as e:
+            raise SourceSearchError("arxiv", "SOURCE_TIMEOUT", "arxiv request timed out") from exc
+        except httpx.HTTPStatusError as exc:
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [arxiv] error: {type(e).__name__}: {e}")
+            raise SourceSearchError(
+                "arxiv",
+                "SOURCE_RATE_LIMITED" if resp.status_code == 429 else "SOURCE_HTTP_ERROR",
+                f"arxiv returned HTTP {resp.status_code}",
+            ) from exc
+        except ET.ParseError as exc:
+            raise SourceSearchError(
+                "arxiv",
+                "SOURCE_RESPONSE_INVALID",
+                "arxiv returned an invalid response",
+            ) from exc
+        except Exception as exc:
+            if attempt == 0:
+                await asyncio.sleep(2)
+                continue
+            print(f"    [arxiv] error: {type(exc).__name__}: {exc}")
+            raise SourceSearchError(
+                "arxiv",
+                "SOURCE_HTTP_ERROR",
+                "arxiv request failed",
+            ) from exc
 
     return []
 

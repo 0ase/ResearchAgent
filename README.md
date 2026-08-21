@@ -1,11 +1,25 @@
-How to start
+## How to start
 
+```powershell
+conda activate BIGONE
 pip install -r requirements.txt
+Copy-Item .env.example .env
+```
 
-go to .env.example and then fill your api key and email
+Fill the API keys and contact email in `.env`, then open two terminals.
 
-create two terminals
+Backend:
 
+```powershell
+conda activate BIGONE
+cd D:\BIGONE
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-streamlit run /frontend/streamlit_app.py
+Frontend:
+
+```powershell
+conda activate BIGONE
+cd D:\BIGONE
+streamlit run frontend/streamlit_app.py
+```

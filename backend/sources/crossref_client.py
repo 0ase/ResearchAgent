@@ -1,6 +1,8 @@
 import asyncio
 import httpx
 
+from backend.config import settings
+
 BASE_URL = "https://api.crossref.org/works"
 
 
@@ -12,11 +14,20 @@ async def search_crossref(query: str, max_results: int = 10, timeout: int = 30) 
         "rows": min(max_results, 100),
         "sort": "relevance",
     }
+    if settings.crossref_email:
+        params["mailto"] = settings.crossref_email
+    headers = {
+        "User-Agent": (
+            f"BIGONE/1.0 (mailto:{settings.crossref_email})"
+            if settings.crossref_email
+            else "BIGONE/1.0"
+        )
+    }
 
     for attempt in range(2):
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.get(url, params=params)
+                resp = await client.get(url, params=params, headers=headers)
                 if resp.status_code == 429:
                     wait = 5 * (attempt + 1)
                     print(f"    [crossref] 429 rate limited, waiting {wait}s...")

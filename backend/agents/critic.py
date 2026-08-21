@@ -1,4 +1,8 @@
+import json
+import re
+
 from openai import AsyncOpenAI
+from backend.agents.report_quality import find_report_completeness_issues
 from backend.agents.state import ResearchState
 from backend.config import settings
 
@@ -9,7 +13,17 @@ async def critique_output(state: ResearchState) -> dict:
     query = state.get("user_query", "")
 
     if not draft:
-        return {"error": ["no draft to critique"], "approved": True}
+        return {
+            "errors": ["no draft to critique"],
+            "critique": {
+                "score": 0,
+                "approved": False,
+                "issue_type": "writing_quality",
+                "issues": ["no draft to critique"],
+                "feedback": "Generate a report draft before critique.",
+            },
+            "approved": False,
+        }
     
     review_text = draft[0].get("content", "")
     
@@ -20,7 +34,8 @@ async def critique_output(state: ResearchState) -> dict:
         max_retries=2,
     )
     response = await client.chat.completions.create(
-        model=settings.default_model,
+        model=settings.light_model or settings.default_model,
+        max_tokens=1200,
         messages=[
             {
                 "role": "system",
@@ -28,11 +43,17 @@ async def critique_output(state: ResearchState) -> dict:
                     "You are a rigorous academic reviewer. Evaluate the literature "
                     "review against the original research question. Check for: "
                     "coverage gaps, logical consistency, citation accuracy, "
-                    "relevance to the query, and writing quality. "
-                    "Return ONLY valid JSON with: "
-                    "score (1-10), issues (list of problems found), "
-                    "approved (true if score >= 7 else false), "
-                    "feedback (revision suggestions if not approved)."
+                    "relevance to the query, writing quality, report completeness, "
+                    "and whether the discussion is sufficiently detailed rather "
+                    "than a paper-by-paper list.\n"
+                    "Return ONLY valid JSON with the following structure:\n"
+                    '{\n'
+                    '  "score": 1-10,\n'
+                    '  "approved": true or false,\n'
+                    '  "issue_type": "none" | "insufficient_evidence" | "analysis_gap" | "citation_error" | "writing_quality",\n'
+                    '  "issues": [],\n'
+                    '  "feedback": ""\n'
+                    '}\n'
                 )
             },
             {
@@ -48,10 +69,45 @@ async def critique_output(state: ResearchState) -> dict:
 
     text = response.choices[0].message.content
     critique = _parse_json(text)
+    score = critique.get("score", 0)
+    try:
+        numeric_score = float(score)
+    except (TypeError, ValueError):
+        numeric_score = 0
+    completeness_issues = find_report_completeness_issues(
+        review_text,
+        state.get("writer_finish_reason"),
+    )
+    approved = (
+        critique.get("approved") is True
+        and numeric_score >= 7
+        and not completeness_issues
+    )
+    critique["approved"] = approved
+    if completeness_issues:
+        issues = list(critique.get("issues") or [])
+        for issue in completeness_issues:
+            if issue not in issues:
+                issues.append(issue)
+        critique["issues"] = issues
+        if critique.get("issue_type") in {None, "", "none"}:
+            critique["issue_type"] = "writing_quality"
+        completeness_feedback = (
+            "报告未满足完整性硬性要求："
+            + "；".join(completeness_issues)
+            + "。请返回一份完整扩展后的报告，不能只提供补丁。"
+        )
+        existing_feedback = str(critique.get("feedback") or "").strip()
+        critique["feedback"] = "\n".join(
+            item for item in (existing_feedback, completeness_feedback) if item
+        )
+    elif approved:
+        critique["issue_type"] = "none"
+        critique["feedback"] = ""
 
     return {
         "critique": critique,
-        "approved": critique.get("approved", True),
+        "approved": approved,
         "feedback": critique.get("feedback", ""),
         "critique_round": state.get("critique_round", 0) + 1,
         "critique_history": [{                              
@@ -65,18 +121,29 @@ async def critique_output(state: ResearchState) -> dict:
 
 def _parse_json(text: str) -> dict:
     """Tolerant JSON parser"""
-    import re
     text = text.strip()
     try:
-        import json
         return json.loads(text)
-    except Exception:
-        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            import json
-            return json.loads(match.group(1))
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            import json
-            return json.loads(match.group(0))
-    return {"score": 5, "issues": ["could not parse critique"], "approved": True, "feedback": ""}
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    for pattern in (
+        r"```(?:json)?\s*(\{.*?\})\s*```",
+        r"\{.*\}",
+    ):
+        match = re.search(pattern, text, re.DOTALL)
+        if not match:
+            continue
+        candidate = match.group(1) if match.lastindex else match.group(0)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+
+    return {
+        "score": 5,
+        "issues": ["could not parse critique"],
+        "approved": False,
+        "issue_type": "writing_quality",
+        "feedback": "Critique output was invalid; review the draft again.",
+    }

@@ -17,7 +17,11 @@ async def ingest_paper(paper: dict) -> bool:
 
     pdf_path = await download_pdf(paper)
     if pdf_path:
-        chunks = chunk_paper(pdf_path)
+        try:
+            chunks = chunk_paper(pdf_path)
+        except Exception as exc:
+            print(f"    [Ingest] PDF parsing failed for {paper_id}: {exc}")
+            return False
         if not chunks:
             return False
     else:
@@ -37,8 +41,12 @@ async def ingest_paper(paper: dict) -> bool:
         }]
     
     texts = [c["content"] for c in chunks]
-    embeddings = await embed_texts(texts)
-    add_chunks(chunks, embeddings, paper_id)
+    try:
+        embeddings = await embed_texts(texts)
+        add_chunks(chunks, embeddings, paper_id)
+    except Exception as exc:
+        print(f"    [Ingest] embedding/indexing failed for {paper_id}: {exc}")
+        return False
     return True
 
 async def ingest_papers(papers: list[dict]) -> int:

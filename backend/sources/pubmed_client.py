@@ -2,6 +2,8 @@ import asyncio
 import httpx
 import xml.etree.ElementTree as ET
 
+from backend.config import settings
+
 _pubmed_sem = asyncio.Semaphore(2)
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
@@ -16,7 +18,12 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
             "retmax": max_results,
             "retmode": "xml",
             "sort": "relevance",
+            "tool": "BIGONE",
         }
+        if settings.pubmed_api_key:
+            params["api_key"] = settings.pubmed_api_key
+        if settings.pubmed_email:
+            params["email"] = settings.pubmed_email
 
         for attempt in range(2):
             try:
@@ -34,7 +41,12 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
                         "id": ",".join(ids),
                         "retmode": "xml",
                         "rettype": "abstract",
+                        "tool": "BIGONE",
                     }
+                    if settings.pubmed_api_key:
+                        fetch_param["api_key"] = settings.pubmed_api_key
+                    if settings.pubmed_email:
+                        fetch_param["email"] = settings.pubmed_email
                     resp2 = await client.get(fetch_url, params=fetch_param)
                     resp2.raise_for_status()
                     return _parse_pubmed_response(resp2.text)

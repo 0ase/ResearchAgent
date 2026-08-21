@@ -1,5 +1,7 @@
 import fitz
 
+from backend.config import settings
+
 def extract_text_from_pdf(pdf_path: str) -> str:
     """use PyMuPDF extract pure text from pdf"""
     doc = fitz.open(pdf_path)
@@ -11,6 +13,11 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 
 def chunk_text(text: str, chunk_size: int = 512, overlap: int = 128) -> list[str]:
     """cut the long range text into smaller block, each block has overlap"""
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    if overlap < 0 or overlap >= chunk_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < chunk_size")
+
     chunks = []
     start = 0
     while start < len(text):
@@ -22,7 +29,11 @@ def chunk_text(text: str, chunk_size: int = 512, overlap: int = 128) -> list[str
 def chunk_paper(pdf_path: str) -> list[dict]:
     """the full process of chunking a paper"""
     full_text = extract_text_from_pdf(pdf_path)
-    text_chunks = chunk_text(full_text)
+    text_chunks = chunk_text(
+        full_text,
+        chunk_size=settings.chunk_size,
+        overlap=settings.chunk_overlap,
+    )
 
     result = []
     for i, chunk in enumerate(text_chunks):
@@ -33,4 +44,4 @@ def chunk_paper(pdf_path: str) -> list[dict]:
             "chunk_index": i,
             "total_chunks": len(text_chunks),
         })
-    return result 
+    return result

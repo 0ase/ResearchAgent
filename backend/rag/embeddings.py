@@ -20,26 +20,31 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
     client = AsyncOpenAI(
         api_key=settings.dashscope_api_key,
         base_url=settings.dashscope_base_url,
+        timeout=60.0,
+        max_retries=0,
     )
 
     all_embeddings = []
     for i in range(0, len(texts), BATCH_SIZE):
         batch = texts[i:i + BATCH_SIZE]
+        last_error: Exception | None = None
         for attempt in range(3):
             try:
                 response = await client.embeddings.create(
-                    model="text-embedding-v4",
+                    model=settings.embedding_model,
                     input=batch,
                 )
                 sorted_data = sorted(response.data, key=lambda x: x.index)
                 all_embeddings.extend([item.embedding for item in sorted_data])
                 break
-            except Exception:
+            except Exception as exc:
+                last_error = exc
                 if attempt < 2:
                     await asyncio.sleep(3 * (attempt + 1))
-                else:
-                    # last attempt failed — return zeros to not crash pipeline
-                    all_embeddings.extend([[0.0] * 1024 for _ in batch])
+        else:
+            raise RuntimeError(
+                f"embedding request failed after 3 attempts: {last_error}"
+            ) from last_error
 
     return all_embeddings
 

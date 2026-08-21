@@ -1,6 +1,6 @@
 """7 阶段流水线进度 — 纵向时间线"""
 import streamlit as st
-from utils.state import PIPELINE_STAGES
+from frontend.utils.state import PIPELINE_STAGES
 
 
 def render_pipeline(current_stage: str, stage_data: dict[str, str]):

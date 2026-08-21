@@ -64,6 +64,10 @@ Return ONLY a JSON array with exactly 3 strings:
 
 def _ensure_sub_queries(sub_queries: list[str], user_query: str) -> list[str]:
     """保证检索计划始终包含 3 个与原问题相关且互不重复的查询。"""
+    user_query = user_query.strip()
+    if not user_query:
+        raise ValueError("user query must not be blank")
+
     fallbacks = [
         user_query,
         f"{user_query} recent advances systematic review",

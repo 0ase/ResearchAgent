@@ -1,0 +1,1813 @@
+{
+  "components": {
+    "schemas": {
+      "AcademicSource": {
+        "enum": ["arxiv", "semantic_scholar", "pubmed", "crossref"],
+        "title": "AcademicSource",
+        "type": "string"
+      },
+      "AnalysisFindingResponse": {
+        "properties": {
+          "claim_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Claim Ids",
+            "type": "array"
+          },
+          "finding_id": {
+            "default": "",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "gap",
+            "title": "Kind",
+            "type": "string"
+          },
+          "paper_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paper Ids",
+            "type": "array"
+          },
+          "statement": {
+            "default": "",
+            "title": "Statement",
+            "type": "string"
+          },
+          "support_type": {
+            "default": "unverified",
+            "title": "Support Type",
+            "type": "string"
+          },
+          "valid": {
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "title": "AnalysisFindingResponse",
+        "type": "object"
+      },
+      "CitationResponse": {
+        "properties": {
+          "chunk_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chunk Ids",
+            "type": "array"
+          },
+          "citation_id": {
+            "default": "",
+            "title": "Citation Id",
+            "type": "string"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Claim Ids",
+            "type": "array"
+          },
+          "display_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Number"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "paper_id": {
+            "default": "",
+            "title": "Paper Id",
+            "type": "string"
+          },
+          "section_id": {
+            "default": "",
+            "title": "Section Id",
+            "type": "string"
+          },
+          "support_type": {
+            "default": "direct",
+            "title": "Support Type",
+            "type": "string"
+          },
+          "valid": {
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "validation_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Message"
+          }
+        },
+        "title": "CitationResponse",
+        "type": "object"
+      },
+      "CreateResearchTaskRequest": {
+        "properties": {
+          "client_request_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Client Request Id",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ResearchTaskOptions"
+          },
+          "query": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": ["client_request_id", "query"],
+        "title": "CreateResearchTaskRequest",
+        "type": "object"
+      },
+      "CreateTaskResponse": {
+        "properties": {
+          "links": {
+            "$ref": "#/components/schemas/TaskLinks"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskSnapshot"
+          }
+        },
+        "required": ["task", "links"],
+        "title": "CreateTaskResponse",
+        "type": "object"
+      },
+      "DeepSeekSettingsResponse": {
+        "properties": {
+          "api_key_configured": {
+            "title": "Api Key Configured",
+            "type": "boolean"
+          },
+          "api_key_required": {
+            "title": "Api Key Required",
+            "type": "boolean"
+          },
+          "default_model": {
+            "title": "Default Model",
+            "type": "string"
+          },
+          "provider": {
+            "const": "deepseek",
+            "default": "deepseek",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": ["default_model", "api_key_required", "api_key_configured"],
+        "title": "DeepSeekSettingsResponse",
+        "type": "object"
+      },
+      "EvidenceResponse": {
+        "properties": {
+          "chunk_id": {
+            "default": "",
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "claim_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Id"
+          },
+          "content_type": {
+            "default": "pdf",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "evidence_id": {
+            "default": "",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "default": "",
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          },
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "paper_id": {
+            "default": "",
+            "title": "Paper Id",
+            "type": "string"
+          },
+          "support_type": {
+            "default": "unverified",
+            "title": "Support Type",
+            "type": "string"
+          },
+          "task_id": {
+            "default": "",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "validation_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Message"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "title": "EvidenceResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "PaperClaimResponse": {
+        "properties": {
+          "chunk_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chunk Ids",
+            "type": "array"
+          },
+          "claim_id": {
+            "default": "",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "evidence_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Text"
+          },
+          "paper_id": {
+            "default": "",
+            "title": "Paper Id",
+            "type": "string"
+          },
+          "statement": {
+            "default": "",
+            "title": "Statement",
+            "type": "string"
+          },
+          "support_type": {
+            "default": "unverified",
+            "title": "Support Type",
+            "type": "string"
+          },
+          "valid": {
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "title": "PaperClaimResponse",
+        "type": "object"
+      },
+      "ReportSectionResponse": {
+        "properties": {
+          "citation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citation Ids",
+            "type": "array"
+          },
+          "heading": {
+            "default": "",
+            "title": "Heading",
+            "type": "string"
+          },
+          "level": {
+            "default": 1,
+            "title": "Level",
+            "type": "integer"
+          },
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          },
+          "section_id": {
+            "default": "",
+            "title": "Section Id",
+            "type": "string"
+          }
+        },
+        "title": "ReportSectionResponse",
+        "type": "object"
+      },
+      "ResearchPaperResult": {
+        "description": "Typed contract for the fields a structured paper result may expose.",
+        "properties": {
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract"
+          },
+          "aliases": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "canonical_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Id"
+          },
+          "citation_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Count"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "full_text_status": {
+            "default": "unavailable",
+            "title": "Full Text Status",
+            "type": "string"
+          },
+          "landing_page_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Landing Page Url"
+          },
+          "paper_id": {
+            "default": "",
+            "title": "Paper Id",
+            "type": "string"
+          },
+          "pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Url"
+          },
+          "relevance_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevance Reason"
+          },
+          "relevance_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevance Score"
+          },
+          "selected": {
+            "default": false,
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_id": {
+            "default": "",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "title": "ResearchPaperResult",
+        "type": "object"
+      },
+      "ResearchRequest": {
+        "description": "Legacy request shape used by the existing Streamlit client.",
+        "properties": {
+          "max_papers": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Max Papers",
+            "type": "integer"
+          },
+          "query": {
+            "description": "research question",
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": ["query"],
+        "title": "ResearchRequest",
+        "type": "object"
+      },
+      "ResearchResponse": {
+        "description": "Legacy response shape kept for `/api/research/`.",
+        "properties": {
+          "final_answer": {
+            "title": "Final Answer",
+            "type": "string"
+          },
+          "papers_count": {
+            "title": "Papers Count",
+            "type": "integer"
+          },
+          "research_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Research Plan",
+            "type": "array"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "research_plan",
+          "papers_count",
+          "final_answer"
+        ],
+        "title": "ResearchResponse",
+        "type": "object"
+      },
+      "ResearchStage": {
+        "enum": [
+          "orchestrate",
+          "search",
+          "filter",
+          "read",
+          "analyze",
+          "synthesize",
+          "critic"
+        ],
+        "title": "ResearchStage",
+        "type": "string"
+      },
+      "ResearchTaskOptions": {
+        "properties": {
+          "max_papers": {
+            "default": 20,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Max Papers",
+            "type": "integer"
+          },
+          "output_language": {
+            "default": "auto",
+            "enum": ["auto", "zh-CN", "en"],
+            "title": "Output Language",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicSource"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "title": "ResearchTaskOptions",
+        "type": "object"
+      },
+      "ResearchTaskResultResponse": {
+        "description": "Strict public result contract with legacy values normalized at the edge.",
+        "properties": {
+          "analysis": {
+            "additionalProperties": true,
+            "title": "Analysis",
+            "type": "object"
+          },
+          "analysis_findings": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisFindingResponse"
+            },
+            "title": "Analysis Findings",
+            "type": "array"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ResultCapabilities"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationResponse"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "critique": {
+            "additionalProperties": true,
+            "title": "Critique",
+            "type": "object"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceResponse"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "paper_claims": {
+            "items": {
+              "$ref": "#/components/schemas/PaperClaimResponse"
+            },
+            "title": "Paper Claims",
+            "type": "array"
+          },
+          "paper_insights": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Paper Insights",
+            "type": "array"
+          },
+          "papers": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchPaperResult"
+            },
+            "title": "Papers",
+            "type": "array"
+          },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "report_markdown": {
+            "default": "",
+            "title": "Report Markdown",
+            "type": "string"
+          },
+          "research_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Research Plan",
+            "type": "array"
+          },
+          "statistics": {
+            "additionalProperties": true,
+            "title": "Statistics",
+            "type": "object"
+          },
+          "structured_report": {
+            "$ref": "#/components/schemas/StructuredReportResponse"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": ["task_id"],
+        "title": "ResearchTaskResultResponse",
+        "type": "object"
+      },
+      "ResultCapabilities": {
+        "properties": {
+          "supports_evidence": {
+            "default": false,
+            "title": "Supports Evidence",
+            "type": "boolean"
+          },
+          "supports_replay": {
+            "default": false,
+            "title": "Supports Replay",
+            "type": "boolean"
+          },
+          "supports_structured_papers": {
+            "default": false,
+            "title": "Supports Structured Papers",
+            "type": "boolean"
+          }
+        },
+        "title": "ResultCapabilities",
+        "type": "object"
+      },
+      "StageSnapshot": {
+        "properties": {
+          "attempt": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/ResearchStage"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StageStatus",
+            "default": "pending"
+          }
+        },
+        "required": ["stage"],
+        "title": "StageSnapshot",
+        "type": "object"
+      },
+      "StageStatus": {
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "warning",
+          "failed",
+          "cancelled"
+        ],
+        "title": "StageStatus",
+        "type": "string"
+      },
+      "StructuredReportResponse": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationResponse"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "markdown": {
+            "default": "",
+            "title": "Markdown",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSectionResponse"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "StructuredReportResponse",
+        "type": "object"
+      },
+      "TaskLinks": {
+        "properties": {
+          "events": {
+            "title": "Events",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "self": {
+            "title": "Self",
+            "type": "string"
+          }
+        },
+        "required": ["self", "events", "result"],
+        "title": "TaskLinks",
+        "type": "object"
+      },
+      "TaskProgress": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "title": "Metrics",
+            "type": "object"
+          }
+        },
+        "title": "TaskProgress",
+        "type": "object"
+      },
+      "TaskSnapshot": {
+        "properties": {
+          "available_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "client_request_id": {
+            "title": "Client Request Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchStage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effective_locale": {
+            "default": "en",
+            "enum": ["zh-CN", "en"],
+            "title": "Effective Locale",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sequence": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Last Sequence",
+            "type": "integer"
+          },
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Task Id"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TaskProgress"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageSnapshot"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "statistics": {
+            "additionalProperties": true,
+            "title": "Statistics",
+            "type": "object"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_request_id",
+          "query",
+          "title",
+          "status",
+          "created_at"
+        ],
+        "title": "TaskSnapshot",
+        "type": "object"
+      },
+      "TaskStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "cancelling",
+          "completed",
+          "failed",
+          "cancelled",
+          "interrupted"
+        ],
+        "title": "TaskStatus",
+        "type": "string"
+      },
+      "UpdateDeepSeekSettingsRequest": {
+        "properties": {
+          "api_key": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Api Key",
+            "type": "string"
+          }
+        },
+        "required": ["api_key"],
+        "title": "UpdateDeepSeekSettingsRequest",
+        "type": "object"
+      },
+      "UpdateTaskRequest": {
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": ["title"],
+        "title": "UpdateTaskRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "多Agent学术研究助手",
+    "version": "v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/research/": {
+      "post": {
+        "description": "普通模式：一次性返回完整结果",
+        "operationId": "start_research_api_research__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Research",
+        "tags": ["research"]
+      }
+    },
+    "/api/research/history": {
+      "get": {
+        "description": "获取历史研究记录列表",
+        "operationId": "research_history_api_research_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research History",
+        "tags": ["research"]
+      }
+    },
+    "/api/research/stream": {
+      "post": {
+        "description": "流式模式: SSE 实时推送每个阶段的进度和数据",
+        "operationId": "start_research_stream_api_research_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Research Stream",
+        "tags": ["research"]
+      }
+    },
+    "/api/research/{session_id}": {
+      "get": {
+        "description": "获取某次研究的完整结果",
+        "operationId": "research_detail_api_research__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research Detail",
+        "tags": ["research"]
+      }
+    },
+    "/api/v1/research/history": {
+      "get": {
+        "operationId": "research_history_api_v1_research_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskSnapshot"
+                  },
+                  "title": "Response Research History Api V1 Research History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research History",
+        "tags": ["research history"]
+      }
+    },
+    "/api/v1/research/tasks": {
+      "post": {
+        "operationId": "create_task_api_v1_research_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResearchTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTaskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Task",
+        "tags": ["research tasks"]
+      }
+    },
+    "/api/v1/research/tasks/active": {
+      "get": {
+        "operationId": "get_active_task_api_v1_research_tasks_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "204": {
+            "description": "No active task"
+          }
+        },
+        "summary": "Get Active Task",
+        "tags": ["research tasks"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}": {
+      "delete": {
+        "operationId": "delete_task_api_v1_research_tasks__task_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Task",
+        "tags": ["research tasks"]
+      },
+      "get": {
+        "operationId": "get_task_api_v1_research_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Task",
+        "tags": ["research tasks"]
+      },
+      "patch": {
+        "operationId": "update_task_api_v1_research_tasks__task_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Task",
+        "tags": ["research tasks"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}/cancel": {
+      "post": {
+        "operationId": "cancel_task_api_v1_research_tasks__task_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Task",
+        "tags": ["research tasks"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}/events": {
+      "get": {
+        "operationId": "stream_events_api_v1_research_tasks__task_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Events",
+        "tags": ["research events"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}/export": {
+      "get": {
+        "operationId": "export_task_api_v1_research_tasks__task_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "markdown",
+              "enum": ["markdown", "bibtex", "json"],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Task",
+        "tags": ["research results"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}/result": {
+      "get": {
+        "operationId": "get_result_api_v1_research_tasks__task_id__result_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchTaskResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Result",
+        "tags": ["research results"]
+      }
+    },
+    "/api/v1/research/tasks/{task_id}/retry": {
+      "post": {
+        "operationId": "retry_task_api_v1_research_tasks__task_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Task",
+        "tags": ["research tasks"]
+      }
+    },
+    "/api/v1/settings/deepseek": {
+      "get": {
+        "operationId": "get_deepseek_settings_api_v1_settings_deepseek_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Deepseek Settings",
+        "tags": ["settings"]
+      },
+      "put": {
+        "operationId": "update_deepseek_settings_api_v1_settings_deepseek_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDeepSeekSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Deepseek Settings",
+        "tags": ["settings"]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

@@ -47,8 +47,14 @@ logs/
 # Streamlit
 .streamlit/secrets.toml
 
+# Next.js test artifacts
+web/test-results/
+web/playwright-report/
+
 # Test
 .pytest_cache/
+.pytest-tmp/
+.agent-browser-chrome-profile/
 .coverage
 htmlcov/
 

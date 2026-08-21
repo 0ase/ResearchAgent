@@ -2,6 +2,8 @@ import asyncio
 import httpx
 import xml.etree.ElementTree as ET
 
+from backend.sources.errors import SourceSearchError
+
 _pubmed_sem = asyncio.Semaphore(2)
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
@@ -22,6 +24,15 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     resp = await client.get(search_url, params=params)
+                    if resp.status_code == 429:
+                        if attempt == 0:
+                            await asyncio.sleep(5)
+                            continue
+                        raise SourceSearchError(
+                            "pubmed",
+                            "SOURCE_RATE_LIMITED",
+                            "pubmed rate limit reached",
+                        )
                     resp.raise_for_status()
                     ids = _parse_id_list(resp.text)
 
@@ -38,17 +49,42 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
                     resp2 = await client.get(fetch_url, params=fetch_param)
                     resp2.raise_for_status()
                     return _parse_pubmed_response(resp2.text)
-            except httpx.TimeoutException:
+            except httpx.TimeoutException as exc:
                 if attempt == 0:
                     print(f"    [pubmed] timeout ({timeout}s), retrying...")
                     await asyncio.sleep(2)
                     continue
                 print(f"    [pubmed] timeout after retry, giving up")
-            except Exception as e:
+                raise SourceSearchError(
+                    "pubmed",
+                    "SOURCE_TIMEOUT",
+                    "pubmed request timed out",
+                ) from exc
+            except httpx.HTTPStatusError as exc:
                 if attempt == 0:
                     await asyncio.sleep(2)
                     continue
-                print(f"    [pubmed] error: {type(e).__name__}: {e}")
+                raise SourceSearchError(
+                    "pubmed",
+                    "SOURCE_HTTP_ERROR",
+                    "pubmed returned an HTTP error",
+                ) from exc
+            except ET.ParseError as exc:
+                raise SourceSearchError(
+                    "pubmed",
+                    "SOURCE_RESPONSE_INVALID",
+                    "pubmed returned an invalid response",
+                ) from exc
+            except Exception as exc:
+                if attempt == 0:
+                    await asyncio.sleep(2)
+                    continue
+                print(f"    [pubmed] error: {type(exc).__name__}: {exc}")
+                raise SourceSearchError(
+                    "pubmed",
+                    "SOURCE_HTTP_ERROR",
+                    "pubmed request failed",
+                ) from exc
 
         return []
 

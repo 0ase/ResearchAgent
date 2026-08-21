@@ -1,0 +1,70 @@
+{
+  "title": "设置",
+  "description": "配置 DeepSeek 模型、新研究任务的默认值和科研伙伴。",
+  "back": "返回研究",
+  "save": "保存设置",
+  "restoreDefaults": "恢复默认",
+  "saved": "设置已保存",
+  "deepseek": {
+    "sectionTitle": "模型与 API",
+    "sectionDescription": "管理本机研究 Agent 使用的 DeepSeek API Key。",
+    "setupTitle": "配置 DeepSeek API Key",
+    "setupDescription": "首次使用前需要保存一个 DeepSeek API Key，保存后无需重启服务。",
+    "deepSeekOnly": "此处必须填写 DeepSeek 模型专用 API Key。Key 将保存在本机项目的 .env 文件中。",
+    "providerLabel": "模型提供商",
+    "defaultModelLabel": "默认模型",
+    "apiKeyLabel": "DeepSeek API Key",
+    "setupPlaceholder": "请输入 DeepSeek API Key",
+    "replaceKeyLabel": "替换 API Key",
+    "replaceKeyPlaceholder": "输入新的 DeepSeek API Key",
+    "keyNotReturned": "为保护密钥，页面不会读取或显示当前 Key；留空不会修改现有配置。",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "checking": "正在检查 DeepSeek 配置…",
+    "saveAndContinue": "保存并开始",
+    "saving": "正在保存…",
+    "updateKey": "更新 API Key",
+    "updating": "正在更新…",
+    "updated": "API Key 已更新",
+    "saveError": "无法保存 API Key，请检查本机后端状态后重试。",
+    "openPlatform": "前往 DeepSeek API 平台",
+    "unavailableTitle": "无法读取模型配置",
+    "unavailableDescription": "需要连接本机后端，才能确认或保存 DeepSeek API Key。",
+    "unavailableError": "无法连接本机后端服务。请确认后端已启动，然后重试。",
+    "retry": "重试",
+    "retrying": "正在重试…"
+  },
+  "research": {
+    "title": "研究默认值",
+    "description": "这些值用于初始化新任务；首页中的修改只影响本次研究。",
+    "maxPapers": "最大论文数",
+    "maxPapersError": "请输入 1 到 50 之间的整数。",
+    "sources": "默认数据源",
+    "sourcesError": "请至少选择一个数据源。",
+    "source": {
+      "arxiv": "arXiv",
+      "semantic_scholar": "Semantic Scholar",
+      "pubmed": "PubMed",
+      "crossref": "Crossref"
+    }
+  },
+  "pet": {
+    "title": "科研伙伴",
+    "description": "科研伙伴会反映当前 Agent 阶段，点击它即可进入本页面。",
+    "visible": "显示科研伙伴",
+    "size": "尺寸",
+    "motion": "动效",
+    "dragLocked": "锁定拖动",
+    "resetPosition": "重置到右下角",
+    "shown": "显示",
+    "hidden": "隐藏",
+    "sizes": { "small": "小", "medium": "中", "large": "大" },
+    "motions": {
+      "system": "跟随系统",
+      "full": "完整",
+      "reduced": "低动效",
+      "static": "静态"
+    },
+    "preview": "预览：{visibility}、{size}、{motion}动效。保存后生效。"
+  }
+}

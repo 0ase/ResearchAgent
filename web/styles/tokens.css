@@ -1,0 +1,42 @@
+:root {
+  --color-page: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #fafaf9;
+  --color-text: #171717;
+  --color-text-muted: #666a73;
+  --color-text-subtle: #9296a0;
+  --color-border: #e5e5e2;
+  --color-border-strong: #d4d4d0;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-subtle: #eff6ff;
+  --color-success: #16803c;
+  --color-warning: #b56a00;
+  --color-error: #d92d20;
+  --font-ui:
+    Geist, Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-report:
+    Geist, Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-float: 10px;
+  --shadow-float: 0 12px 32px rgb(23 23 23 / 12%);
+  --motion-fast: 120ms;
+  --motion-panel: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-panel: 0ms;
+  }
+}

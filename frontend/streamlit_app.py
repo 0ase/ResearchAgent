@@ -36,6 +36,34 @@ from frontend.components.export import render_export, render_copy_block
 st.set_page_config(page_title="多Agent学术研究助手", page_icon="📚", layout="wide")
 s = ensure_session()
 
+
+def restore_from_session_id(session_id: str) -> bool:
+    """从后端数据库恢复指定会话的完整研究状态。历史按钮与 URL 自动恢复共用。"""
+    full = get_session(session_id)
+    if not full:
+        return False
+    reset_session()
+    s = ensure_session()
+    s["query"] = full.get("query", "")
+    s["completed"] = True
+    s["session_id"] = session_id
+    result = full.get("result", {})
+    s["final_answer"] = result.get("final_answer", "")
+    s["papers"] = result.get("papers", [])
+    s["paper_insights"] = result.get("paper_insights", [])
+    s["analysis"] = result.get("analysis", {})
+    s["critique"] = result.get("critique", {})
+    s["messages"] = get_chat_messages(session_id)
+    s["current_stage"] = "critic"
+    return True
+
+
+# URL 带 session_id 且当前没有进行中/已完成的研究 → 自动恢复（F5 或分享链接后免手动点历史）
+if not s.get("completed") and not s.get("is_running"):
+    url_session_id = st.query_params.get("session_id", "")
+    if url_session_id and restore_from_session_id(url_session_id):
+        s = ensure_session()
+
 # ============================================================
 # Sidebar
 # ============================================================
@@ -43,6 +71,7 @@ with st.sidebar:
     st.title("⚙️ 配置")
 
     if st.button("➕ 新建研究", use_container_width=True):
+        st.query_params.pop("session_id", None)
         reset_session()
         st.rerun()
 
@@ -69,27 +98,14 @@ with st.sidebar:
                 key=f"hist_{item['session_id']}",
                 use_container_width=True,
             ):
-                full = get_session(item["session_id"])
-                if full:
-                    reset_session()
-                    s = ensure_session()
-                    s["query"] = full.get("query", "")
-                    s["completed"] = True
-                    s["session_id"] = item["session_id"]
-                    result = full.get("result", {})
-                    s["final_answer"] = result.get("final_answer", "")
-                    s["papers"] = result.get("papers", [])
-                    s["paper_insights"] = result.get("paper_insights", [])
-                    s["analysis"] = result.get("analysis", {})
-                    s["critique"] = result.get("critique", {})
-                    s["messages"] = get_chat_messages(item["session_id"])
-                    s["current_stage"] = "critic"
+                if restore_from_session_id(item["session_id"]):
+                    st.query_params["session_id"] = item["session_id"]
                     st.rerun()
     else:
         st.caption("暂无历史记录")
 
     st.divider()
-    st.caption("BIGONE v1.0")
+    st.caption("BIGONE v1.1")
 
 # ============================================================
 # Main
@@ -171,6 +187,7 @@ with tab1:
             st.info("👆 在上方输入研究问题开始")
     else:
         # 新研究
+        st.query_params.pop("session_id", None)
         reset_session()
         s = ensure_session()
         s["query"] = query
@@ -244,6 +261,9 @@ with tab1:
                             s["paper_insights"] = data.get("paper_insights", [])
                             s["analysis"] = data.get("analysis", {})
                             s["session_id"] = data.get("session_id", "")
+                            # 写入地址栏，刷新或分享链接后可自动恢复本会话
+                            if s["session_id"]:
+                                st.query_params["session_id"] = s["session_id"]
 
                             with final_placeholder.container():
                                 st.divider()

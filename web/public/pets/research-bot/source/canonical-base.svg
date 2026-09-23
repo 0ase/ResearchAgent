@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="208" viewBox="0 0 192 208">
+  <g id="shadow" opacity=".14"><ellipse cx="96" cy="186" rx="39" ry="8" fill="#17283A"/></g>
+  <g id="antenna" transform="translate(0 0)" stroke="#334A60" stroke-width="6" stroke-linecap="round">
+    <path d="M96 47 L96 25"/><circle cx="96" cy="21" r="7" fill="#24B8C7" stroke="#334A60" stroke-width="4"/>
+  </g>
+  <g id="body" transform="translate(0 0)">
+    <rect x="57" y="82" width="78" height="82" rx="28" fill="#E8F4F7" stroke="#334A60" stroke-width="6"/>
+    <rect x="64" y="48" width="64" height="53" rx="22" fill="#F7FBFC" stroke="#334A60" stroke-width="6"/>
+    <rect x="72" y="60" width="48" height="27" rx="10" fill="#24B8C7"/>
+    <circle cx="86" cy="73" r="4" fill="#173244"/><circle cx="106" cy="73" r="4" fill="#173244"/>
+    <path d="M72 151v25M120 151v25" stroke="#334A60" stroke-width="8" stroke-linecap="round"/>
+    <path d="M60 106l-12 22M132 106l12 22" stroke="#334A60" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="96" cy="116" r="7" fill="#6D84D8"/>
+  </g>
+
+
+  </svg>

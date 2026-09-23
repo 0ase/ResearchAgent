@@ -6,16 +6,10 @@ def validate_decision(
     decision: SupervisorDecision,
     state: ResearchState,
 ) -> SupervisorDecision:
-    step_count = state.get("step_count", 0)
-    max_steps = state.get("max_steps", 12)
+    forced = deterministic_decision(state)
+    if forced is not None:
+        return forced
 
-    if step_count >= max_steps:
-        return decision.model_copy(update={
-            "next_agent": "finish",
-            "objective": "使用已有资料生成当前能够提供的最佳答案",
-            "reason": "达到最大Agent调用次数",
-        })
-    
     target = decision.next_agent
 
     has_insights = bool(state.get("paper_insights"))
@@ -132,3 +126,33 @@ def validate_decision(
         })
 
     return decision
+
+
+def deterministic_decision(state: ResearchState) -> SupervisorDecision | None:
+    """Budget/quality gates run before another Supervisor provider call."""
+    has_insights = bool(state.get("paper_insights"))
+    draft = state.get("draft_sections")
+    critique = state.get("critique") or {}
+    def route(agent, reason):
+        return SupervisorDecision(next_agent=agent, objective=reason, reason=reason)
+    if draft and critique.get("provider_unavailable"):
+        return route("finish", "质量评审服务不可用，保留未获批准的部分结果")
+    if draft and critique.get("approved") is True:
+        return route("finish", "当前草稿已通过质量评审")
+    if state.get("retrieval_exhausted") and not has_insights:
+        return route("finish", "检索已耗尽且没有可用论文证据")
+    if draft and state.get("critique_round", 0) >= settings.max_critique_rounds:
+        return route("finish", "已达到最大质量评审轮次")
+    budget = state.get("max_steps", 12)
+    if state.get("step_count", 0) < budget:
+        return None
+    used = state.get("finalization_agents", [])
+    if not has_insights or len(used) >= 3 or state.get("step_count", 0) >= budget + 3:
+        return route("finish", "达到有限收尾上限，返回已验证的可用结果")
+    if not state.get("analysis_report"):
+        return route("analysis" if "analysis" not in used else "finish", "补齐收尾分析")
+    if not draft or (critique and critique.get("approved") is not True and "writer" not in used):
+        return route("writer" if "writer" not in used else "finish", "补齐或修订收尾报告")
+    if not critique and "critic" not in used and state.get("critique_round", 0) < settings.max_critique_rounds:
+        return route("critic", "完成最后一次可用质量评审")
+    return route("finish", "有限收尾完成，保留实际质量状态")

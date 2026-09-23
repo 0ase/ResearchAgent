@@ -1,0 +1,56 @@
+import {expect, test} from "@playwright/test";
+
+test("queues, replaces and cancels a follow-up, then answers from the completed report", async ({page}) => {
+  await page.goto("/en");
+  await page.getByLabel("Research question").fill("Follow-up queue migration test");
+  await page.getByRole("button", {name:"Start research"}).click();
+  await expect(page).toHaveURL(/\/research\//);
+  const composer=page.getByTestId("followup-composer");
+  const input=page.getByRole("textbox", {name:"Ask about this report"});
+  await input.fill("First queued question");
+  await composer.getByRole("button", {name:"Send follow-up"}).click();
+  await expect(composer.getByText("First queued question", {exact:true})).toBeVisible();
+  await page.reload();
+  await expect(composer.getByText("First queued question", {exact:true})).toBeVisible();
+  await composer.getByRole("button", {name:"Edit",exact:true}).click();
+  await input.fill("Replacement question");
+  await composer.getByRole("button", {name:"Replace queued question"}).click();
+  await expect(composer.getByText("Replacement question", {exact:true})).toBeVisible();
+  await composer.getByRole("button", {name:"Cancel question"}).click();
+  await expect(composer.getByText("Replacement question", {exact:true})).toHaveCount(0);
+  await input.fill("Explain the report evidence");
+  await composer.getByRole("button", {name:"Send follow-up"}).click();
+  const history=page.getByRole("region", {name:"Report conversation"});
+  await expect(history).toContainText("This demo answer uses the existing report", {timeout:20000});
+  await expect(history.locator("article")).toHaveCount(2);
+  const footerBox=await composer.boundingBox();
+  const scrollBox=await page.getByTestId("task-scroll-region").boundingBox();
+  expect(footerBox).not.toBeNull();
+  expect(scrollBox!.y + scrollBox!.height).toBeLessThanOrEqual(footerBox!.y+1);
+  expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height+1);
+  await page.reload();
+  await expect(history.locator("article")).toHaveCount(2);
+  await page.getByTestId("task-scroll-region").evaluate((element) => {element.scrollTop=element.scrollHeight;});
+  await expect(history).toContainText("Explain the report evidence");
+  await page.screenshot({path:test.info().outputPath("followup-workspace.png"), fullPage:true});
+});
+
+test("cancelling research clears its queued question and disables the composer", async ({page}) => {
+  await page.goto("/en");
+  await page.getByLabel("Research question").fill("Cancel research with queued follow-up");
+  await page.getByRole("button", {name:"Start research"}).click();
+  await expect(page).toHaveURL(/\/research\//);
+  const input=page.getByRole("textbox", {name:"Ask about this report"});
+  await input.fill("Discard this queued question");
+  await page.getByRole("button", {name:"Send follow-up"}).click();
+  await expect(page.getByTestId("followup-composer")).toContainText("Discard this queued question");
+  await page.getByRole("button", {name:"Stop research",exact:true}).first().click();
+  await page.getByRole("dialog").getByRole("button", {name:"Stop research",exact:true}).click();
+  await expect(page.getByText("Research stopped")).toBeVisible({timeout:10000});
+  await expect(input).toBeDisabled();
+  await expect(input).toHaveValue("");
+  await expect(page.getByText("Discard this queued question", {exact:true})).toHaveCount(0);
+  await page.reload();
+  await expect(input).toBeDisabled();
+  await expect(page.getByText("Discard this queued question", {exact:true})).toHaveCount(0);
+});

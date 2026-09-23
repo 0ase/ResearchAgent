@@ -1,3 +1,4 @@
+from backend.sources.errors import SourceSearchError
 import asyncio
 import httpx
 
@@ -40,13 +41,13 @@ async def search_crossref(query: str, max_results: int = 10, timeout: int = 30) 
                 print(f"    [crossref] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
-            print(f"    [crossref] timeout after retry, giving up")
+            raise SourceSearchError("crossref", "SOURCE_TIMEOUT", "Academic source request timed out")
         except Exception as e:
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [crossref] error: {type(e).__name__}: {e}")
-    return []
+            raise SourceSearchError("crossref", "SOURCE_HTTP_ERROR" if isinstance(e, httpx.HTTPStatusError) else "SOURCE_REQUEST_FAILED", "Academic source request failed") from None
+    raise SourceSearchError("crossref", "SOURCE_RATE_LIMITED", "Academic source rate limit reached")
 
 
 def _parse_response(data: dict) -> list[dict]:

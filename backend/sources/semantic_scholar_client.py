@@ -1,3 +1,4 @@
+from backend.sources.errors import SourceSearchError
 import httpx
 import asyncio
 
@@ -34,13 +35,13 @@ async def search_semantic_scholar(query: str, max_results: int = 10, timeout: in
                 print(f"    [s2] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
-            print(f"    [s2] timeout after retry, giving up")
+            raise SourceSearchError("semantic_scholar", "SOURCE_TIMEOUT", "Academic source request timed out")
         except Exception as e:
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [s2] error: {type(e).__name__}: {e}")
-    return []
+            raise SourceSearchError("semantic_scholar", "SOURCE_HTTP_ERROR" if isinstance(e, httpx.HTTPStatusError) else "SOURCE_REQUEST_FAILED", "Academic source request failed") from None
+    raise SourceSearchError("semantic_scholar", "SOURCE_RATE_LIMITED", "Academic source rate limit reached")
 
 
 def _parse_response(data: dict) -> list[dict]:

@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 from typing import Literal
 
 from openai import AsyncOpenAI
+from backend.services.provider_retry import chat_completion
 from pydantic import BaseModel, Field
 
 from backend.agents.state import ResearchState
@@ -103,9 +104,9 @@ async def call_search_review_model(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
         timeout=60.0,
-        max_retries=2,
+        max_retries=0,
     )
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.light_model or settings.default_model,
         max_tokens=800,
         messages=[
@@ -167,7 +168,7 @@ async def review_search_results(state: ResearchState) -> dict:
     search_round = state.get("search_round", 0)
     previous_queries = state.get("previous_queries", [])
     current_queries = [
-        item.get("sub_query", "").strip()
+        str(item.get("retrieval_query") or item.get("sub_query", "")).strip()
         for item in plan
         if item.get("sub_query", "").strip()
     ]

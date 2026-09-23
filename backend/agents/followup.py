@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from openai import AsyncOpenAI
+from backend.services.provider_retry import chat_completion
 
 from backend.config import settings
 from backend.services.session_types import StoredSession
@@ -93,10 +94,10 @@ async def answer_followup(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
         timeout=120.0,
-        max_retries=2,
+        max_retries=0,
     )
 
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.default_model,
         max_tokens=1500,
         messages=[
@@ -106,9 +107,9 @@ async def answer_followup(
                     "你是学术研究报告的后续问答助手。"
                     "请根据已有研究报告、跨论文分析和论文证据回答用户追问。\n\n"
                     "要求：\n"
-                    "1. 使用和用户相同的语言回答。\n"
+                    f"1. 回答语言：{session.get('effective_locale', '与用户相同')}。\n"
                     "2. 优先解释现有报告中的结论。\n"
-                    "3. 引用论文证据时使用 [Source 来源ID]。\n"
+                    "3. 引用证据时只使用目录中的 [[CITE:citation_id]]。\n"
                     "4. 不得虚构当前上下文中不存在的论文、数据或结论。\n"
                     "5. 如果现有证据不足，请明确说明证据不足。\n"
                     "6. 除非用户明确要求，否则不要重新输出整篇综述。\n"
@@ -122,6 +123,7 @@ async def answer_followup(
                     f"当前研究报告：\n{report}\n\n"
                     f"跨论文分析：\n{analysis}\n\n"
                     f"论文证据：\n{insights_text}\n\n"
+                    f"引用目录：{research_result.get('citations', [])}\n\n"
                     f"最近对话：\n{history_text}\n\n"
                     f"用户当前追问：\n{question}"
                 ),

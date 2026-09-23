@@ -203,7 +203,7 @@ async def test_supervisor_skips_llm_after_first_approval(monkeypatch):
     })
 
     assert command.goto == "finish"
-    assert command.update["step_count"] == 6
+    assert command.update["step_count"] == 5  # finish is not an agent delegation
 
 
 @pytest.mark.asyncio
@@ -328,3 +328,28 @@ def test_rejected_draft_stops_at_critique_round_limit():
     safe = validate_decision(decision, state)
 
     assert safe.next_agent == "finish"
+
+
+@pytest.mark.parametrize("identity_key", ["paper_id", "source_id"])
+def test_candidate_cap_keeps_metadata_for_already_read_papers(monkeypatch, identity_key):
+    monkeypatch.setattr(settings, "max_candidate_papers", 10)
+    old = {identity_key: "old", "title": "Old evidence", "source": "arxiv", "citation_count": 0}
+    newcomers = [{identity_key: f"new-{n}", "title": f"Candidate {n}", "source": "arxiv",
+                  "citation_count": n + 1, "abstract": "New abstract"} for n in range(15)]
+    result = select_candidate_papers({"raw_papers": [old, *newcomers],
+        "paper_insights": [{"source": "old", "answer": "Retained evidence"}]})
+    assert len(result["raw_papers"]) == 10
+    assert old in result["raw_papers"]
+
+
+def test_retained_claim_still_resolves_to_paper_after_candidate_cap(monkeypatch):
+    from backend.tests.evidence_fixture import evidence_state
+    from backend.services.result_builder import build_result
+    monkeypatch.setattr(settings, "max_candidate_papers", 10)
+    state = evidence_state()
+    state["raw_papers"] += [{"paper_id": f"new-{n}", "title": f"New {n}",
+                             "abstract": "Candidate abstract", "citation_count": n + 1} for n in range(15)]
+    state.update(select_candidate_papers(state))
+    result = build_result("t", state)
+    assert result.evidence[0]["verified"]
+    assert not any("paper does not exist" in warning for warning in result.warnings)

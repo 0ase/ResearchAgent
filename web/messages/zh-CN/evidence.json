@@ -1,0 +1,17 @@
+{
+  "title": "证据",
+  "empty": "选择报告中的引用以查看来源证据。",
+  "unsupported": "这条历史结果没有证据追踪数据。",
+  "openPaper": "打开论文",
+  "verified": "已验证",
+  "unverified": "未验证",
+  "citationUnverified": "该引用尚未验证。",
+  "sourceExcerpt": "来源摘录",
+  "page": "第 {page} 页",
+  "citation": "引用 {number}",
+  "noLinkedEvidence": "暂无关联证据。",
+  "unknownPaper": "未知论文",
+  "unverifiedExcerpt": "该摘录无法与已存储的文本片段完成验证。",
+  "details": "证据详情",
+  "noExcerpt": "暂无摘录。"
+}

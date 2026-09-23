@@ -9,47 +9,33 @@ from backend.agents.synthesize import synthesize_review
 from backend.agents.critic import critique_output
 from backend.agents.supervisor import supervisor
 from backend.agents.retrieval_graph import build_retrieval_graph
+from backend.agents.instrumentation import instrument, instrument_supervisor
 
 
 def finish(state: ResearchState) -> dict:
-    draft = state.get("draft_sections", [])
-
-    final_answer = state.get("final_answer", "")
-    if not final_answer and draft:
-        final_answer = draft[0].get("content", "")
-    if not final_answer:
-        insights = state.get("paper_insights", [])
-        final_answer = "\n\n".join(
-            f"**{item.get('source', 'unknown')}**: {item.get('answer', '')}"
-            for item in insights
-            if item.get("answer")
-        )
-    if not final_answer:
-        papers = state.get("selected_papers") or state.get("raw_papers", [])
-        final_answer = "\n\n".join(
-            f"### {paper.get('title', 'Untitled')}\n{paper.get('abstract', '')}"
-            for paper in papers[:10]
-            if paper.get("title") or paper.get("abstract")
-        )
-
-    return {
-        "status": "completed",
-        "finish_reason": state.get(
-            "finish_reason",
-            "Supervisor 判断研究任务已经完成",
-        ),
-        "final_answer": final_answer,
-    }
+    from backend.domain.errors import ResearchPipelineError
+    from backend.domain.reports import report_has_substantive_body
+    if not state.get("paper_insights"):
+        raise ResearchPipelineError("NO_READABLE_PAPERS" if state.get("raw_papers") else "NO_RESEARCH_RESULTS")
+    draft = state.get("draft_sections") or []
+    if not draft:
+        raise ResearchPipelineError("EMPTY_REPORT")
+    final_answer = state.get("final_answer") or "\n\n".join(item.get("content", "") for item in draft)
+    if not report_has_substantive_body(final_answer):
+        raise ResearchPipelineError("EMPTY_REPORT")
+    return {"status": "completed", "finish_reason": state.get("finish_reason", "研究收尾完成"),
+            "final_answer": final_answer,
+            "warnings": [] if (state.get("critique") or {}).get("approved") is True else ["CRITIQUE_NOT_APPROVED"]}
 
 
-def build_graph() -> StateGraph:
+def build_graph(run_context=None) -> StateGraph:
     graph = StateGraph(ResearchState)
 
-    graph.add_node("supervisor", supervisor)
-    graph.add_node("retrieval", build_retrieval_graph())
-    graph.add_node("analysis", analyze_papers)
-    graph.add_node("writer", synthesize_review)
-    graph.add_node("critic", critique_output)
+    graph.add_node("supervisor", instrument_supervisor(supervisor, run_context))
+    graph.add_node("retrieval", build_retrieval_graph(run_context))
+    graph.add_node("analysis", instrument(analyze_papers, "analyze", run_context))
+    graph.add_node("writer", instrument(synthesize_review, "synthesize", run_context))
+    graph.add_node("critic", instrument(critique_output, "critic", run_context))
     graph.add_node("finish", finish)
 
     graph.add_edge(START, "supervisor")

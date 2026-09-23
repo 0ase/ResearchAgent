@@ -1,0 +1,17 @@
+{
+  "title": "Evidence",
+  "empty": "Select a citation in the report to inspect its source evidence.",
+  "unsupported": "This historical result has no evidence tracing data.",
+  "openPaper": "Open paper",
+  "verified": "Verified",
+  "unverified": "Unverified",
+  "citationUnverified": "This citation is unverified.",
+  "sourceExcerpt": "Source excerpt",
+  "page": "Page {page}",
+  "citation": "Citation {number}",
+  "noLinkedEvidence": "No linked evidence is available.",
+  "unknownPaper": "Unknown paper",
+  "unverifiedExcerpt": "This excerpt could not be verified against the stored chunk.",
+  "details": "Evidence details",
+  "noExcerpt": "No excerpt available."
+}

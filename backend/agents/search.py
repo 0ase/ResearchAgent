@@ -6,11 +6,22 @@ from backend.sources.semantic_scholar_client import search_semantic_scholar
 from backend.sources.crossref_client import search_crossref
 from backend.sources.pubmed_client import search_pubmed
 from backend.config import settings
+from backend.services.run_context import context_from_state
+from backend.services.paper_normalizer import normalize_paper
+from backend.repositories.paper_repository import PaperRepository
 
 SEARCH_TIMEOUT = settings.search_timeout_seconds  # 30s per-source timeout
+SOURCE_CLIENTS = None
 
 
 async def search_papers(state: ResearchState) -> dict:
+    context = context_from_state(state)
+    if context:
+        context.raise_if_cancelled()
+    diagnostics = []
+    providers = {"arxiv": search_arxiv, "semantic_scholar": search_semantic_scholar, "pubmed": search_pubmed, "crossref": search_crossref}
+    providers = SOURCE_CLIENTS or providers
+    source_names = [s for s in (state.get("sources") or list(providers)) if s in providers]
     plan = state.get("research_plan", [])
     results_per_source = settings.search_results_per_source
     search_round = state.get("search_round", 0) + 1
@@ -20,7 +31,7 @@ async def search_papers(state: ResearchState) -> dict:
             "search_round": state.get("search_round", 0) + 1,
         }
 
-    queries = [task["sub_query"][:200] for task in plan]
+    queries = [str(task.get("retrieval_query") or task.get("sub_query") or "")[:200] for task in plan]
     t0 = time.time()
     print(f"\n[Search] Starting {len(queries)} sub-queries across 4 sources (max {SEARCH_TIMEOUT}s per call)...")
 
@@ -30,17 +41,16 @@ async def search_papers(state: ResearchState) -> dict:
         q_t0 = time.time()
         print(f"  [Search] Q{idx+1}: \"{q[:80]}...\" → searching 4 sources...")
         results = await asyncio.gather(
-            search_arxiv(q, max_results=results_per_source, timeout=SEARCH_TIMEOUT),
-            search_semantic_scholar(q, max_results=results_per_source, timeout=SEARCH_TIMEOUT),
-            search_pubmed(q, max_results=results_per_source, timeout=SEARCH_TIMEOUT),
-            search_crossref(q, max_results=results_per_source, timeout=SEARCH_TIMEOUT),
+            *(providers[name](q, max_results=results_per_source, timeout=SEARCH_TIMEOUT) for name in source_names),
             return_exceptions=True,
         )
         papers = []
-        source_names = ["arxiv", "semantic_scholar", "pubmed", "crossref"]
         for src_name, r in zip(source_names, results):
+            if isinstance(r, asyncio.CancelledError):
+                raise r
+            diagnostics.append({"source": src_name, "query": q, "status": "error" if isinstance(r, Exception) else "ok", "papers": len(r) if isinstance(r, list) else 0, "error_code": getattr(r, "code", "SOURCE_REQUEST_FAILED") if isinstance(r, Exception) else None})
             if isinstance(r, Exception):
-                print(f"    [Search] Q{idx+1} {src_name}: ERROR - {r}")
+                print(f"    [Search] Q{idx+1} {src_name}: ERROR - {type(r).__name__}")
             elif isinstance(r, list):
                 print(f"    [Search] Q{idx+1} {src_name}: {len(r)} papers")
                 for paper in r:
@@ -65,18 +75,27 @@ async def search_papers(state: ResearchState) -> dict:
     all_papers = []
     for i, r in enumerate(all_results):
         if isinstance(r, Exception):
-            print(f"  [Search] Q{i+1} failed entirely: {r}")
+            print(f"  [Search] Q{i+1} failed entirely: {type(r).__name__}")
         elif isinstance(r, list):
             all_papers.extend(r)
 
     unique_papers = deduplicate_papers(
         state.get("raw_papers", []) + all_papers
     )
+    if context:
+        context.raise_if_cancelled()
+    if state.get("task_id"):
+        normalized = [normalize_paper(p, task_id=state["task_id"]) for p in unique_papers]
+        stored = await PaperRepository().upsert_task_papers(state["task_id"], normalized)
+        by_key = {p.canonical_id: p for p in stored}
+        unique_papers = [{**raw, **by_key.get(p.canonical_id, p).model_dump(mode="json")} for raw, p in zip(unique_papers, normalized)]
     elapsed = time.time() - t0
     print(f"[Search] All done in {elapsed:.1f}s → {len(unique_papers)} unique papers from {len(all_papers)} raw\n")
 
     return {
         "raw_papers": unique_papers,
+        "search_diagnostics": [*state.get("search_diagnostics", []), *diagnostics],
+        "warnings": [d["error_code"] for d in diagnostics if d["error_code"]],
         "search_round": search_round,
     }
 
@@ -113,8 +132,15 @@ def select_candidate_papers(state: ResearchState) -> dict:
     if len(papers) <= limit:
         return {}
 
+    # Read evidence remains authoritative across retrieval rounds. Reserve its
+    # metadata before capping candidates, or result validation loses the paper.
+    retained_ids = {i.get("paper_id") or i.get("source") for i in state.get("paper_insights", [])
+                    if i.get("paper_id") or i.get("source")}
+    selected = [p for p in papers if (p.get("paper_id") or p.get("source_id")) in retained_ids]
     buckets: dict[tuple[int, str], list[dict]] = {}
     for paper in papers:
+        if (paper.get("paper_id") or paper.get("source_id")) in retained_ids:
+            continue
         key = (
             int(paper.get("search_round_found") or 1),
             str(paper.get("source") or "unknown"),
@@ -131,7 +157,6 @@ def select_candidate_papers(state: ResearchState) -> dict:
             reverse=True,
         )
 
-    selected: list[dict] = []
     active_keys = list(buckets)
     while active_keys and len(selected) < limit:
         next_keys = []

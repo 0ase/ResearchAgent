@@ -1,0 +1,18 @@
+{
+  "openSettings": "打开设置",
+  "hint": "拖动移动，点击设置",
+  "accessibleLabel": "科研伙伴：{state}；打开设置",
+  "states": {
+    "idle": "待机",
+    "orchestrate": "正在规划",
+    "search": "正在搜索",
+    "filter": "正在筛选论文",
+    "read": "正在阅读",
+    "analyze": "正在分析",
+    "synthesize": "正在综合",
+    "critic": "正在评审",
+    "dragging": "正在移动",
+    "completed": "研究已完成",
+    "failed": "研究已停止"
+  }
+}

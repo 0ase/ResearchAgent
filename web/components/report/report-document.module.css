@@ -1,0 +1,122 @@
+.document {
+  min-width: 0;
+  max-width: 760px;
+  color: var(--color-text);
+  font-family: var(--font-report);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.document :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.4;
+  scroll-margin-block-start: 16px;
+}
+
+.document h1 {
+  margin: 0 0 24px;
+  font-size: 28px;
+}
+.document h2 {
+  margin: 32px 0 12px;
+  font-size: 24px;
+}
+.document h3 {
+  margin: 24px 0 10px;
+  font-size: 20px;
+}
+.document h4 {
+  margin: 20px 0 8px;
+  font-size: 18px;
+}
+.document h5 {
+  margin: 20px 0 8px;
+  font-size: 17px;
+}
+.document h6 {
+  margin: 20px 0 8px;
+  font-size: 16px;
+}
+.document > :first-child {
+  margin-top: 0;
+}
+
+.document p {
+  margin: 0 0 12px;
+}
+.document :is(ul, ol) {
+  margin: 12px 0;
+  padding-inline-start: 24px;
+}
+.document ul {
+  list-style-type: disc;
+}
+.document ol {
+  list-style-type: decimal;
+}
+.document li + li {
+  margin-top: 4px;
+}
+.document li > :is(ul, ol) {
+  margin-block: 4px;
+}
+.document hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-strong);
+}
+
+.document a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.document a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.document blockquote {
+  margin: 16px 0;
+  padding-inline-start: 16px;
+  border-inline-start: 3px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+.document pre {
+  margin: 16px 0;
+  padding: 12px;
+  overflow-x: auto;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-control);
+}
+.document :not(pre) > code {
+  padding: 2px 4px;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-control);
+}
+
+.tableContainer {
+  max-width: 100%;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.document table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  border-top: 2px solid var(--color-border-strong);
+  border-bottom: 2px solid var(--color-border-strong);
+}
+.document :is(th, td) {
+  padding: 10px 12px;
+  border: 0;
+  vertical-align: top;
+  text-align: start;
+}
+.document th {
+  font-weight: 600;
+}
+.document thead tr:last-child th {
+  border-bottom: 1px solid var(--color-border-strong);
+}

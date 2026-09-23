@@ -1,0 +1,23 @@
+{
+  "paper_id": "chunk:wrong-paper",
+  "summary": "Comparison summary.",
+  "claims": [
+    {
+      "claim": "Finding 1",
+      "chunk_id": "chunk-1",
+      "evidence_text": "Source evidence 1."
+    },
+    {
+      "claim": "Finding 2",
+      "chunk_id": "chunk-2",
+      "evidence_text": "Source evidence 2."
+    }
+  ],
+  "limitations": [
+    "Missing independent baselines."
+  ],
+  "chunk_ids": [
+    "chunk-1",
+    "chunk-2"
+  ]
+}

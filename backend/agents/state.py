@@ -3,7 +3,25 @@ from typing import Annotated, Optional
 from typing_extensions import TypedDict
 
 
+def merge_warnings(previous: list[str], incoming: list[str]) -> list[str]:
+    return list(dict.fromkeys([*previous, *incoming]))
+
+
 class ResearchState(TypedDict, total=False):
+    task_id: str
+    sources: list[str]
+    output_language: str
+    _run_context: object
+    paper_claims: list[dict]
+    paper_chunks: list[dict]
+    chunks: list[dict]
+    draft_version: int
+    analysis_findings: list[dict]
+    structured_report: dict
+    citations: list[dict]
+    warnings: Annotated[list[str], merge_warnings]
+    search_diagnostics: list[dict]
+    agent_trace: list[dict]
     user_query: str
 
     research_plan: list[dict]
@@ -27,6 +45,7 @@ class ResearchState(TypedDict, total=False):
     decision_reason: str
     step_count: int
     max_steps: int
+    finalization_agents: list[str]
     status: str
     finish_reason: str
     max_papers: int

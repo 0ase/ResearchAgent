@@ -1,3 +1,4 @@
+from backend.sources.errors import SourceSearchError
 import xml.etree.ElementTree as ET
 import httpx
 import asyncio
@@ -30,14 +31,14 @@ async def search_arxiv(query: str, max_results: int = 10, timeout: int = 30) -> 
                 print(f"    [arxiv] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
-            print(f"    [arxiv] timeout after retry, giving up")
+            raise SourceSearchError("arxiv", "SOURCE_TIMEOUT", "Academic source request timed out")
         except Exception as e:
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [arxiv] error: {type(e).__name__}: {e}")
+            raise SourceSearchError("arxiv", "SOURCE_HTTP_ERROR" if isinstance(e, httpx.HTTPStatusError) else "SOURCE_REQUEST_FAILED", "Academic source request failed") from None
 
-    return []
+    raise SourceSearchError("arxiv", "SOURCE_RATE_LIMITED", "Academic source rate limit reached")
 
 
 def parse_arxiv_response(xml_text: str) -> list[dict]:

@@ -3,10 +3,11 @@ import re
 from typing import Literal
 
 from openai import AsyncOpenAI
+from backend.services.provider_retry import chat_completion
 from langgraph.types import Command
 
 from backend.agents.contracts import SupervisorDecision
-from backend.agents.policy import validate_decision
+from backend.agents.policy import validate_decision, deterministic_decision
 from backend.agents.state import ResearchState
 from backend.config import settings
 
@@ -89,6 +90,8 @@ def _decision_command(
     state: ResearchState,
     decision: SupervisorDecision,
 ) -> Command[ROUTES]:
+    decision = validate_decision(decision, state)
+    finalizing = state.get("step_count", 0) >= state.get("max_steps", 12) and decision.next_agent != "finish"
     return Command(
         goto=decision.next_agent,
         update={
@@ -100,59 +103,27 @@ def _decision_command(
                 if decision.next_agent == "finish"
                 else state.get("finish_reason", "")
             ),
-            "step_count": state.get("step_count", 0) + 1,
+            "step_count": state.get("step_count", 0) + int(decision.next_agent != "finish"),
+            "finalization_agents": [*state.get("finalization_agents", []), *([decision.next_agent] if finalizing else [])],
         },
     )
 
 
 async def supervisor(state: ResearchState) -> Command[ROUTES]:
-    critique = state.get("critique") or {}
-    if state.get("retrieval_exhausted") and not state.get("paper_insights"):
-        return _decision_command(
-            state,
-            SupervisorDecision(
-                next_agent="finish",
-                objective="结束无法取得论文证据的研究任务",
-                reason="检索已达到轮次上限且没有获得论文",
-            ),
-        )
-
-    if (
-        state.get("draft_sections")
-        and critique
-        and critique.get("approved") is not True
-        and state.get("critique_round", 0) >= settings.max_critique_rounds
-    ):
-        return _decision_command(
-            state,
-            SupervisorDecision(
-                next_agent="finish",
-                objective="返回达到评审轮次上限后的最佳研究综述",
-                reason="已达到最大质量评审轮次",
-            ),
-        )
-
-    if state.get("draft_sections") and critique.get("approved") is True:
-        # 已批准是确定性终止条件，不应再调用一次 Supervisor LLM。
-        return _decision_command(
-            state,
-            SupervisorDecision(
-                next_agent="finish",
-                objective="返回已经通过质量评审的研究综述",
-                reason="当前草稿已通过质量评审",
-            ),
-        )
+    forced = deterministic_decision(state)
+    if forced is not None:
+        return _decision_command(state, forced)
 
     client = AsyncOpenAI(
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
         timeout=60,
-        max_retries=2,
+        max_retries=0,
     )
 
     summary = summarize_state(state)
 
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.light_model or settings.default_model,
         max_tokens=500,
         messages=[

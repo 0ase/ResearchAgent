@@ -56,3 +56,6 @@ htmlcov/
 .claude/
 
 data/
+# Local validation output
+.pytest-tmp/
+/web/public/pets/research-bot/qa/

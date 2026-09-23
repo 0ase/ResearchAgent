@@ -1,3 +1,4 @@
+from backend.sources.errors import SourceSearchError
 import asyncio
 import httpx
 import xml.etree.ElementTree as ET
@@ -55,12 +56,12 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
                     print(f"    [pubmed] timeout ({timeout}s), retrying...")
                     await asyncio.sleep(2)
                     continue
-                print(f"    [pubmed] timeout after retry, giving up")
+                raise SourceSearchError("pubmed", "SOURCE_TIMEOUT", "Academic source request timed out")
             except Exception as e:
                 if attempt == 0:
                     await asyncio.sleep(2)
                     continue
-                print(f"    [pubmed] error: {type(e).__name__}: {e}")
+                raise SourceSearchError("pubmed", "SOURCE_HTTP_ERROR" if isinstance(e, httpx.HTTPStatusError) else "SOURCE_REQUEST_FAILED", "Academic source request failed") from None
 
         return []
 

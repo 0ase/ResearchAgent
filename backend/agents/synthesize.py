@@ -2,10 +2,15 @@ import json
 import re
 
 from openai import AsyncOpenAI
+from backend.services.provider_retry import chat_completion
 
 from backend.agents.report_quality import find_report_completeness_issues
 from backend.agents.state import ResearchState
 from backend.config import settings
+from backend.domain.reports import CitationDraft, build_structured_report, citation_id_for_claim, next_draft_version
+from backend.services.run_context import context_from_state
+from backend.domain.reports import report_has_substantive_text
+from backend.agents.report_fallback import _fallback_report
 
 
 def _format_authors(authors: object) -> str:
@@ -20,8 +25,8 @@ def _format_authors(authors: object) -> str:
     return ", ".join(name for name in names if name) or "Unknown"
 
 
-def _length_instruction(query: str) -> str:
-    if re.search(r"[\u3400-\u9fff]", query):
+def _length_instruction(query: str, output_language: str | None = None) -> str:
+    if output_language == "zh-CN" or (output_language is None and re.search(r"[\u3400-\u9fff]", query)):
         return (
             f"正文目标为 {settings.writer_min_characters}–8000 个中文字符（参考文献不计入），"
             "在证据足够时应接近目标上限。"
@@ -38,7 +43,7 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
     query = state.get("user_query", "")
     objective = state.get("current_task", "")
     selected_by_id = {
-        str(paper.get("source_id")): paper
+        str(paper.get("paper_id") or paper.get("source_id")): paper
         for paper in state.get("selected_papers", [])
         if paper.get("source_id")
     }
@@ -93,11 +98,11 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
                 "gaps and future directions; conclusion; and references. A concise "
                 "markdown comparison table is welcome when it improves clarity, but "
                 "tables do not replace analysis.\n\n"
-                "Cite factual claims inline as [Source ID]. Never invent a source, "
+                "Cite factual claims inline ONLY as [[CITE:citation_id]], using the supplied catalogue. Never invent a source, "
                 "result, author, date, or bibliographic field. Include in References "
                 "only sources cited in the body and use the metadata supplied below. "
                 "Discuss evidence quality and uncertainty where the excerpts are "
-                "insufficient. Write in the same language as the user's question. "
+                f"insufficient. Write in {state.get('output_language', 'the language of the question')}. "
                 "Do not end early: finish every required section and the References. "
                 "Add depth through comparison and reasoning, not filler or repeated "
                 "paper descriptions."
@@ -108,13 +113,14 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
             "content": (
                 f"Research question: {query}\n\n"
                 f"Current writing objective: {objective}\n\n"
-                f"Length requirement: {_length_instruction(query)}\n\n"
+                f"Length requirement: {_length_instruction(query, state.get('output_language'))}\n\n"
                 "The following material is evidence, not an outline. Select, compare, "
                 "and combine the evidence needed to answer the question. Make the "
                 "relationship among methods, findings, disagreements, limitations, "
                 "and open problems explicit.\n\n"
                 f"Source evidence:\n{evidence_text}\n\n"
-                f"Cross-paper analysis:\n{analysis_text}"
+                f"Cross-paper analysis:\n{analysis_text}\n"
+                f"Citation catalogue: {json.dumps(_citation_catalog(state), ensure_ascii=False)}"
                 f"{revision_note}\n\n"
                 "Write the complete integrated literature review in markdown now."
             ),
@@ -126,7 +132,7 @@ def _completion_text_and_reason(response) -> tuple[str, str]:
     choice = response.choices[0]
     return (
         (choice.message.content or "").strip(),
-        str(choice.finish_reason or ""),
+        str(getattr(choice, "finish_reason", "") or ""),
     )
 
 
@@ -159,7 +165,7 @@ async def _continue_report(
             ),
         },
     ])
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.default_model,
         max_tokens=settings.writer_continuation_tokens,
         messages=messages,
@@ -188,7 +194,7 @@ async def _rewrite_incomplete_report(
             ),
         },
     ])
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.default_model,
         max_tokens=settings.writer_max_tokens,
         messages=messages,
@@ -198,6 +204,9 @@ async def _rewrite_incomplete_report(
 
 async def synthesize_review(state: ResearchState) -> dict:
     """Write a complete thematic review and repair abnormal short/truncated output."""
+    context = context_from_state(state)
+    if context:
+        context.raise_if_cancelled()
     if not state.get("paper_insights"):
         return {"errors": ["no insights to synthesize"]}
 
@@ -205,9 +214,9 @@ async def synthesize_review(state: ResearchState) -> dict:
         api_key=settings.anthropic_api_key,
         base_url=settings.base_url,
         timeout=300.0,
-        max_retries=2,
+        max_retries=0,
     )
-    response = await client.chat.completions.create(
+    response = await chat_completion(client,
         model=settings.default_model,
         max_tokens=settings.writer_max_tokens,
         messages=_build_writer_messages(state),
@@ -218,10 +227,13 @@ async def synthesize_review(state: ResearchState) -> dict:
     # Most requests use one call. Extra calls happen only when deterministic checks
     # detect truncation or a materially incomplete report.
     while review and attempts < 3:
+        if context:
+            context.raise_if_cancelled()
         issues = find_report_completeness_issues(review, finish_reason)
         if not issues:
             break
 
+        attempts += 1
         if finish_reason == "length":
             continuation, finish_reason = await _continue_report(client, state, review)
             if not continuation:
@@ -245,13 +257,24 @@ async def synthesize_review(state: ResearchState) -> dict:
             if candidate_score >= old_score:
                 break
             review, finish_reason = candidate, candidate_reason
-        attempts += 1
 
-    if not review:
-        return {"errors": ["writer returned an empty response"]}
+    if not report_has_substantive_text(review):
+        review = _fallback_report(query=state.get("user_query", ""), output_language=state.get("output_language", "en"),
+            insights=state.get("paper_insights", []), findings=state.get("analysis_findings", []),
+            claims=state.get("paper_claims", []), citation_catalog=_citation_catalog(state))
 
     remaining_issues = find_report_completeness_issues(review, finish_reason)
+    context = context_from_state(state)
+    if context:
+        context.raise_if_cancelled()
+    catalog = [CitationDraft(**item) for item in _citation_catalog(state)]
+    report = build_structured_report(review, citations=catalog,
+        claim_ids={cid for c in catalog for cid in c.claim_ids},
+        chunk_ids={cid for c in catalog for cid in c.chunk_ids},
+        version=next_draft_version(state.get("structured_report")))
     return {
+        "structured_report": report.model_dump(),
+        "draft_version": report.version,
         "draft_sections": [{"title": "Literature Review", "content": review}],
         "final_answer": review,
         "critique": None,
@@ -261,3 +284,10 @@ async def synthesize_review(state: ResearchState) -> dict:
         "writer_generation_attempts": attempts,
         "writer_incomplete": bool(remaining_issues),
     }
+
+
+def _citation_catalog(state):
+    claims = state.get("paper_claims", []) or [c for i in state.get("paper_insights", []) for c in i.get("claims", [])]
+    return [{"citation_id": citation_id_for_claim(c["claim_id"]), "claim_ids": [c["claim_id"]],
+             "paper_id": c.get("paper_id", ""), "chunk_ids": c.get("chunk_ids", [])}
+            for c in claims if c.get("claim_id")]

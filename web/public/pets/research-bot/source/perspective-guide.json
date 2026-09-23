@@ -1,0 +1,27 @@
+{
+  "cell": {
+    "width": 192,
+    "height": 208
+  },
+  "safeBounds": {
+    "left": 12,
+    "top": 8,
+    "right": 180,
+    "bottom": 196
+  },
+  "baselineY": 176,
+  "shadowCenterY": 186,
+  "maxBodyShiftX": 18,
+  "maxBodyLeanDeg": 8,
+  "views": {
+    "front": {
+      "yawDeg": 0
+    },
+    "left34": {
+      "yawDeg": -35
+    },
+    "right34": {
+      "yawDeg": 35
+    }
+  }
+}

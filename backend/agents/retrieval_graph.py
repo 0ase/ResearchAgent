@@ -7,12 +7,16 @@ from backend.agents.filter import filter_papers
 from backend.agents.read import read_papers
 from backend.agents.search_review import review_search_results
 from backend.config import settings
+from backend.agents.instrumentation import instrument
 
 
 def invalidate_downstream(_: ResearchState) -> dict:
     """新证据会使旧分析、旧草稿和旧评审失效。"""
     return {
         "analysis_report": None,
+        "analysis_findings": [],
+        "structured_report": {},
+        "citations": [],
         "draft_sections": [],
         "critique": None,
         "approved": False,
@@ -37,15 +41,15 @@ def mark_retrieval_exhausted(_: ResearchState) -> dict:
         "final_answer": None,
     }
     
-def build_retrieval_graph():
+def build_retrieval_graph(run_context=None):
     graph = StateGraph(ResearchState)
 
-    graph.add_node("plan_queries", orchestrate)
-    graph.add_node("search", search_papers)
-    graph.add_node("review_search", review_search_results)
-    graph.add_node("select_candidates", select_candidate_papers)
-    graph.add_node("filter", filter_papers)
-    graph.add_node("read", read_papers)
+    graph.add_node("plan_queries", instrument(orchestrate, "orchestrate", run_context))
+    graph.add_node("search", instrument(search_papers, "search", run_context))
+    graph.add_node("review_search", instrument(review_search_results, "search", run_context))
+    graph.add_node("select_candidates", instrument(select_candidate_papers, "filter", run_context))
+    graph.add_node("filter", instrument(filter_papers, "filter", run_context))
+    graph.add_node("read", instrument(read_papers, "read", run_context))
     graph.add_node(
         "invalidate_downstream",
         invalidate_downstream,

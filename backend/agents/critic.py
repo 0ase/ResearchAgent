@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 from backend.agents.report_quality import find_report_completeness_issues
 from backend.agents.state import ResearchState
 from backend.config import settings
+from backend.core.observability import logger
 
 async def critique_output(state: ResearchState) -> dict:
     """Evaluatte the synthesized review for quailty and completeness"""
@@ -28,7 +29,7 @@ async def critique_output(state: ResearchState) -> dict:
     review_text = draft[0].get("content", "")
     
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=120.0,
         max_retries=2,
@@ -140,6 +141,7 @@ def _parse_json(text: str) -> dict:
         except json.JSONDecodeError:
             continue
 
+    logger.warning("llm.parse.fallback", extra={"fields": {"parser": "critic", "characters": len(text)}})
     return {
         "score": 5,
         "issues": ["could not parse critique"],

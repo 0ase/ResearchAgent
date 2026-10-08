@@ -1,14 +1,17 @@
 import json
 import asyncio
 import uuid
-from contextlib import suppress
+import logging
+from contextlib import aclosing, suppress
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
 from backend.agents.graph import build_graph
 from backend.api.schemas import ResearchRequest, ResearchResponse
 from backend.services.session_store import save_session, get_sessions, get_session
+from backend.core.errors import AppError, error_payload
+from backend.core.streaming import ManagedStreamingResponse
+from backend.core.observability import current_context, log_context, logger, report_exception, trace_stage
 
 from backend.agents.followup import answer_followup
 from backend.api.schemas import FollowUpRequest, FollowUpResponse
@@ -63,8 +66,10 @@ async def _with_heartbeats(source):
                 await next_item
         close = getattr(iterator, "aclose", None)
         if close is not None:
-            with suppress(Exception):
+            try:
                 await close()
+            except Exception as exc:
+                report_exception(exc, "stream.cleanup.failed", level=logging.WARNING)
 
 
 def _initial_state(req: ResearchRequest) -> dict[str, Any]:
@@ -94,9 +99,21 @@ def _paper_payload(paper: dict) -> dict:
         "source_id": paper.get("source_id", ""),
         "published_date": str(paper.get("published_date", "")),
         "citation_count": paper.get("citation_count", 0),
+        "citation_count_known": paper.get("citation_count_known"),
+        "venue": paper.get("venue", ""),
+        "issns": paper.get("issns", []),
+        "venue_quality": paper.get("venue_quality"),
+        "candidate_priority_score": paper.get("candidate_priority_score"),
         "doi": paper.get("doi", ""),
         "relevance_score": paper.get("relevance_score", 0),
         "relevance_reason": paper.get("relevance_reason", ""),
+        "relevance_score_scale": paper.get("relevance_score_scale", 5),
+        "screening_scores": paper.get("screening_scores", {}),
+        "screening_eligible": paper.get("screening_eligible"),
+        "screening_status": paper.get("screening_status", ""),
+        "screening_scope_eligible": paper.get("screening_scope_eligible"),
+        "screening_tier": paper.get("screening_tier", ""),
+        "screening_error_id": paper.get("screening_error_id"),
     }
 
 
@@ -147,6 +164,7 @@ def _collect_stage_events(
         "label": STAGE_LABELS["filter"],
         "count": len(selected),
         "papers": [_paper_payload(p) for p in selected],
+        "summary": state.get("screening_summary", {}),
     })
 
     insights = state.get("paper_insights", [])
@@ -164,6 +182,7 @@ def _collect_stage_events(
         "agreements": len(analysis.get("agreements", [])) if isinstance(analysis, dict) else 0,
         "contradictions": len(analysis.get("contradictions", [])) if isinstance(analysis, dict) else 0,
         "gaps": len(analysis.get("gaps", [])) if isinstance(analysis, dict) else 0,
+        "diagnostics": state.get("analysis_diagnostics") or {},
     })
 
     draft = state.get("draft_sections", [])
@@ -194,47 +213,54 @@ def _result_payload(state: dict, agent_trace: list[dict] | None = None) -> dict:
         "final_answer": state.get("final_answer") or "",
         "critique": state.get("critique"),
         "papers": papers,
+        "selected_papers": [_paper_payload(p) for p in state.get("selected_papers", [])],
+        "screening_summary": state.get("screening_summary", {}),
         "paper_insights": state.get("paper_insights", []),
         "analysis": state.get("analysis_report") or {},
+        "analysis_diagnostics": state.get("analysis_diagnostics") or {},
         "agent_trace": agent_trace or [],
         "finish_reason": state.get("finish_reason", ""),
         "writer_finish_reason": state.get("writer_finish_reason", ""),
         "writer_generation_attempts": state.get("writer_generation_attempts", 0),
         "writer_incomplete": state.get("writer_incomplete", False),
+        "warnings": state.get("errors", []),
+        "request_id": current_context().get("request_id"),
     }
+
+
+async def _persist_research(session_id: str, query: str, payload: dict):
+    try:
+        await save_session(session_id=session_id, query=query, result=payload)
+    except Exception as exc:
+        raise AppError(
+            "SESSION_SAVE_FAILED", "研究结果保存失败，请稍后重试。", 503,
+        ) from exc
 
 
 @router.post("/", response_model=ResearchResponse)
 async def start_research(req: ResearchRequest):
     """普通模式：一次性返回完整结果"""
-    app = build_graph()
-    result = await app.ainvoke(_initial_state(req))
-    papers = result.get("raw_papers", [])
-    if not papers:
-        raise HTTPException(
-            status_code=422,
-            detail="未搜索到可用论文，请检查网络或调整研究问题。",
-        )
     session_id = str(uuid.uuid4())
-    payload = _result_payload(result)
-    try:
-        await save_session(session_id=session_id, query=req.query, result=payload)
-    except Exception as exc:
-        print(f"[SessionStore] Save failed: {exc}")
-
-    return ResearchResponse(
-        session_id=session_id,
-        research_plan=result.get("research_plan", []),
-        papers_count=len(papers),
-        final_answer=result.get("final_answer") or "Research Done",
-    )
+    with log_context(session_id=session_id):
+        app = build_graph()
+        result = await app.ainvoke(_initial_state(req))
+        papers = result.get("raw_papers", [])
+        if not papers:
+            raise AppError("NO_PAPERS_FOUND", "未搜索到可用论文，请检查网络或调整研究问题。", 422)
+        await _persist_research(session_id, req.query, _result_payload(result))
+        return ResearchResponse(
+            session_id=session_id,
+            research_plan=result.get("research_plan", []),
+            papers_count=len(papers),
+            final_answer=result.get("final_answer") or "Research Done",
+        )
 
 
 @router.post("/stream")
 async def start_research_stream(req: ResearchRequest):
     """流式模式: SSE 实时推送每个阶段的进度和数据"""
 
-    async def event_stream():
+    async def generate_events(session_id):
         try:
             app = build_graph()
             final_state: dict | None = None
@@ -247,69 +273,64 @@ async def start_research_stream(req: ResearchRequest):
                 stream_mode="values",
                 subgraphs=True,
             )
-            async for item in _with_heartbeats(graph_stream):
-                if item is None:
-                    yield _sse("heartbeat", {"status": "running"})
-                    continue
+            async with aclosing(_with_heartbeats(graph_stream)) as items:
+                async for item in items:
+                    if item is None:
+                        yield _sse("heartbeat", {"status": "running"})
+                        continue
 
-                namespace, state = item
-                if not namespace:
-                    final_state = state
+                    namespace, state = item
+                    if not namespace:
+                        final_state = state
 
-                step = state.get("step_count", 0)
-                next_agent = state.get("next_agent", "")
-                if next_agent and step != last_step:
-                    last_step = step
-                    delegation = {
-                        "step": step,
-                        "agent": "supervisor",
-                        "next_agent": next_agent,
-                        "objective": state.get("current_task", ""),
-                        "reason": state.get("decision_reason", ""),
-                    }
-                    agent_trace.append(delegation)
-                    yield _sse("agent", delegation)
+                    step = state.get("step_count", 0)
+                    next_agent = state.get("next_agent", "")
+                    if next_agent and step != last_step:
+                        last_step = step
+                        delegation = {
+                            "step": step,
+                            "agent": "supervisor",
+                            "next_agent": next_agent,
+                            "objective": state.get("current_task", ""),
+                            "reason": state.get("decision_reason", ""),
+                        }
+                        agent_trace.append(delegation)
+                        yield _sse("agent", delegation)
 
-                for stage_event in _collect_stage_events(state, signatures):
-                    yield _sse("stage", stage_event)
+                    for stage_event in _collect_stage_events(state, signatures):
+                        yield _sse("stage", stage_event)
 
             # ---- async for 结束后 ----
             if final_state is None:
-                yield _sse("error", {"message": "研究工作流没有产生任何状态。"})
-                return
+                raise AppError("WORKFLOW_EMPTY", "研究工作流没有产生任何状态。")
 
-            session_id = str(uuid.uuid4())
             final_papers = final_state.get("raw_papers", [])
 
             # 搜索阶段结束后，如果一篇论文都没搜到 → 提前终止，不跑后续无用阶段
             if not final_papers:
-                yield _sse("error", {
-                    "message": (
-                        "未搜到任何论文。可能原因：① 网络无法访问学术 API；"
-                        "② 研究问题过于冷门；③ API 超时。请检查网络或尝试其他问题。"
-                    ),
-                })
-                return
+                raise AppError("NO_PAPERS_FOUND", "未搜索到可用论文，请检查网络或调整研究问题。", 422)
 
             result_payload = _result_payload(final_state, agent_trace)
 
             # 先持久化再发送 done。这样客户端收到 session_id 后可以立刻追问，
             # 不会遇到会话尚未写入数据库的竞态条件。
-            try:
-                await save_session(
-                    session_id=session_id,
-                    query=req.query,
-                    result=result_payload,
-                )
-            except Exception as e:
-                print(f"[SessionStore] Save failed: {e}")
+            await _persist_research(session_id, req.query, result_payload)
 
             yield _sse("done", {**result_payload, "session_id": session_id})
 
-        except Exception as e:
-            yield _sse("error", {"message": str(e)})
+        except asyncio.CancelledError:
+            logger.info("research.cancelled")
+            raise
+        except Exception as exc:
+            yield _sse("error", error_payload(exc))
 
-    return StreamingResponse(
+    async def event_stream():
+        with log_context(session_id=str(uuid.uuid4())):
+            async with aclosing(generate_events(current_context()["session_id"])) as events:
+                async for event in events:
+                    yield event
+
+    return ManagedStreamingResponse(
         event_stream(),
         media_type="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
@@ -318,7 +339,7 @@ async def start_research_stream(req: ResearchRequest):
 
 def _sse(event: str, data: dict) -> str:
     """格式化 SSE 消息"""
-    payload = {**data, "event": event}
+    payload = {"request_id": current_context().get("request_id"), **data, "event": event}
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
@@ -336,8 +357,7 @@ async def research_detail(session_id: str):
     """获取某次研究的完整结果"""
     session = await get_session(session_id)
     if session is None:
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"error": "session not found"}, status_code=404)
+        raise HTTPException(status_code=404, detail="Research session not found")
     return session
 
 
@@ -360,6 +380,11 @@ async def followup_chat(
     session_id: str,
     req: FollowUpRequest,
 ):
+    with log_context(session_id=session_id, message_id=req.message_id):
+        return await _followup_chat(session_id, req)
+
+
+async def _followup_chat(session_id: str, req: FollowUpRequest):
     # 1. 从数据库读取原始研究会话
     session = await get_session(session_id)
 
@@ -405,7 +430,7 @@ async def followup_chat(
     )
 
     # 3. 调用 Follow-up Agent
-    result = await answer_followup(
+    result = await trace_stage("followup", answer_followup)(
         question=req.message,
         session=session,
         messages=messages,

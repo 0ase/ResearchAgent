@@ -7,7 +7,7 @@ import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
-BACKEND = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+BACKEND = os.getenv("BACKEND_URL", "http://127.0.0.1:3000").rstrip("/")
 
 
 def health_check() -> bool:

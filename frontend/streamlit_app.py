@@ -2,11 +2,21 @@
 📚 多Agent学术研究助手
 7 Agent 协作流水线：Orchestrator → Search → Read → Analyze → Synthesize → Critic
 """
+import sys
+from pathlib import Path
+
+# Streamlit executes this file as a script and may only add frontend/ to sys.path.
+# Add its parent so absolute imports work regardless of the launch directory.
+PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import streamlit as st
 import httpx
 import uuid
 
 from frontend.utils.api_client import (
+    BACKEND,
     ask_followup,
     get_chat_messages,
     get_history,
@@ -50,6 +60,7 @@ def restore_from_session_id(session_id: str) -> bool:
     result = full.get("result", {})
     s["final_answer"] = result.get("final_answer", "")
     s["papers"] = result.get("papers", [])
+    s["selected_papers"] = result.get("selected_papers", [])
     s["paper_insights"] = result.get("paper_insights", [])
     s["analysis"] = result.get("analysis", {})
     s["critique"] = result.get("critique", {})
@@ -75,15 +86,16 @@ with st.sidebar:
         reset_session()
         st.rerun()
 
-    max_papers = st.slider("最大论文数", min_value=5, max_value=15, value=15, step=1)
+    max_papers = st.slider("目标阅读论文数（筛选后）", min_value=5, max_value=15, value=15, step=1)
 
     st.divider()
 
+    st.caption(f"后端地址：{BACKEND}")
     if st.button("🩺 后端健康检查", use_container_width=True):
         if health_check():
             st.success("后端连接正常 ✅")
         else:
-            st.error("无法连接后端 ❌")
+            st.error(f"无法连接后端 {BACKEND}，请确认服务已启动且端口一致。")
 
     st.divider()
 
@@ -201,9 +213,11 @@ with tab1:
             final_placeholder = st.empty()
 
             stage_data_map: dict[str, str] = {}
+            last_request_id = ""
 
             try:
                 with stream_research(query, max_papers) as response:
+                    last_request_id = response.headers.get("X-Request-ID", "")
                     if response.status_code != 200:
                         st.error(f"后端返回 {response.status_code}")
                         s["is_running"] = False
@@ -256,6 +270,7 @@ with tab1:
                             s["critique"] = data.get("critique") or {}
 
                             all_papers = data.get("papers", [])
+                            s["selected_papers"] = data.get("selected_papers", s.get("selected_papers", []))
                             if all_papers:
                                 s["papers"] = all_papers
                             s["paper_insights"] = data.get("paper_insights", [])
@@ -277,6 +292,8 @@ with tab1:
                             stage_data_map["error"] = f"❌ {data.get('message', '')}"
                             s["is_running"] = False
                             final_placeholder.error(data.get("message", "未知错误"))
+                            if data.get("error_id"):
+                                st.caption(f"错误编号：{data['error_id']}；请求编号：{data.get('request_id', last_request_id)}")
 
                         # 刷新进度时间线
                         if stage:
@@ -285,7 +302,17 @@ with tab1:
                             render_pipeline(s["current_stage"], stage_data_map)
 
             except httpx.ConnectError:
-                progress_placeholder.error("❌ 无法连接后端，请确认 FastAPI 正在运行")
+                progress_placeholder.error(
+                    f"❌ 无法连接后端 {BACKEND}，请确认 FastAPI 已启动且端口一致。"
+                )
+                s["is_running"] = False
+            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ReadTimeout, ConnectionResetError):
+                progress_placeholder.error(
+                    "❌ 研究连接已中断，后端可能发生崩溃、重启或响应超时。"
+                    "请检查后端日志，并使用 BIGONE 环境启动后重新发起研究。"
+                )
+                if last_request_id:
+                    st.caption(f"请求编号：{last_request_id}")
                 s["is_running"] = False
             except Exception as e:
                 progress_placeholder.error(f"❌ 异常: {e}")
@@ -302,7 +329,7 @@ with tab2:
     # 筛选后交给 Read Agent 的论文
     if selected:
         st.subheader(f"⭐ 筛选后的论文（{len(selected)} 篇）")
-        st.caption("LLM 根据与问题的相关性评分选出")
+        st.caption("通过主题与问题匹配门槛后，按六维加权评分选出；综合分为 0–100。")
         render_paper_table(selected)
         st.divider()
 

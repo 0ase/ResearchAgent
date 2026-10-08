@@ -1,3 +1,5 @@
+import logging
+from backend.core.observability import logger, report_exception
 import asyncio
 import httpx
 
@@ -30,22 +32,21 @@ async def search_crossref(query: str, max_results: int = 10, timeout: int = 30) 
                 resp = await client.get(url, params=params, headers=headers)
                 if resp.status_code == 429:
                     wait = 5 * (attempt + 1)
-                    print(f"    [crossref] 429 rate limited, waiting {wait}s...")
+                    logger.warning("source.rate_limited", extra={"fields": {"source": "crossref", "attempt": attempt + 1, "retry_delay_seconds": wait}})
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
                 return _parse_response(resp.json())
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
+            report_exception(exc, "source.timeout", level=logging.WARNING, source="crossref", attempt=attempt + 1)
             if attempt == 0:
-                print(f"    [crossref] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
-            print(f"    [crossref] timeout after retry, giving up")
         except Exception as e:
+            report_exception(e, "source.failed", level=logging.WARNING, source="crossref", attempt=attempt + 1)
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [crossref] error: {type(e).__name__}: {e}")
     return []
 
 
@@ -72,6 +73,9 @@ def _parse_response(data: dict) -> list[dict]:
         # Date
         date_parts = item.get("published", {}).get("date-parts", [[None]])[0]
         year = str(date_parts[0]) if date_parts and date_parts[0] else ""
+        venues = item.get("container-title") or []
+        pdf_url = next((link.get("URL", "") for link in (item.get("link") or [])
+                        if isinstance(link, dict) and link.get("content-type") == "application/pdf"), "")
 
         papers.append({
             "title": title,
@@ -82,7 +86,11 @@ def _parse_response(data: dict) -> list[dict]:
             "published_date": year,
             "doi": doi,
             "citation_count": item.get("is-referenced-by-count", 0),
-            "pdf_url": ""
+            "citation_count_known": item.get("is-referenced-by-count") is not None,
+            "citation_count_source": "crossref",
+            "venue": venues[0] if venues else "",
+            "issns": item.get("ISSN") or [],
+            "pdf_url": pdf_url,
         })
 
     return papers

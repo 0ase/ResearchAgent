@@ -52,7 +52,17 @@ def stage_detail_search(data: dict) -> str:
 
 
 def stage_detail_filter(data: dict) -> str:
-    return f"筛选出 Top {data.get('count', 0)} 篇"
+    summary = data.get("summary", {})
+    detail = (f"有效评分 {summary.get('scored', '?')} 篇 · "
+              f"达标 {summary.get('qualified_primary', summary.get('qualified', '?'))} 篇 · "
+              f"阅读 {data.get('count', 0)} 篇")
+    for key, label in (("supplemented", "补充"), ("failed", "评分失败"),
+                       ("not_evaluated", "未评估")):
+        if summary.get(key):
+            detail += f" · {label} {summary[key]} 篇"
+    if summary.get("stopped_early"):
+        detail += "（达到目标后停止）"
+    return detail
 
 
 def stage_detail_read(data: dict) -> str:

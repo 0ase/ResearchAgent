@@ -1,3 +1,5 @@
+import logging
+from backend.core.observability import logger, report_exception
 import asyncio
 import httpx
 import xml.etree.ElementTree as ET
@@ -50,17 +52,16 @@ async def search_pubmed(query: str, max_results: int = 10, timeout: int = 30) ->
                     resp2 = await client.get(fetch_url, params=fetch_param)
                     resp2.raise_for_status()
                     return _parse_pubmed_response(resp2.text)
-            except httpx.TimeoutException:
+            except httpx.TimeoutException as exc:
+                report_exception(exc, "source.timeout", level=logging.WARNING, source="pubmed", attempt=attempt + 1)
                 if attempt == 0:
-                    print(f"    [pubmed] timeout ({timeout}s), retrying...")
                     await asyncio.sleep(2)
                     continue
-                print(f"    [pubmed] timeout after retry, giving up")
             except Exception as e:
+                report_exception(e, "source.failed", level=logging.WARNING, source="pubmed", attempt=attempt + 1)
                 if attempt == 0:
                     await asyncio.sleep(2)
                     continue
-                print(f"    [pubmed] error: {type(e).__name__}: {e}")
 
         return []
 
@@ -119,15 +120,25 @@ def _parse_pubmed_response(xml_text: str) -> list[dict]:
                     pmc_id = "PMC" + pmc_id
                 break
 
+        date = article.find(".//Journal/JournalIssue/PubDate")
+        published_date = ""
+        if date is not None:
+            published_date = date.findtext("Year") or date.findtext("MedlineDate") or ""
+        venue = article.findtext(".//Journal/Title") or article.findtext(".//Journal/ISOAbbreviation") or ""
+        issns = [value.text for value in article.findall(".//Journal/ISSN") if value.text]
+
         papers.append({
             "title": title,
             "authors": authors,
             "abstract": abstract,
             "source": "pubmed",
             "source_id": f"pubmed:{pmid}",
-            "published_date": "",
+            "published_date": published_date,
             "doi": doi,
             "citation_count": 0,
+            "citation_count_known": False,
+            "venue": venue,
+            "issns": issns,
             "pdf_url": f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc_id}/pdf/" if pmc_id else "",
         })
     return papers

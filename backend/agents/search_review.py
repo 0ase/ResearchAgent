@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from backend.agents.state import ResearchState
 from backend.config import settings
+from backend.core.observability import logger
 
 
 class SearchReviewDecision(BaseModel):
@@ -24,7 +25,7 @@ def _normalize_query(query: str) -> str:
 def remove_duplicate_queries(
     new_queries: list[str],
     previous_queries: list[str],
-    limit: int = 2,
+    limit: int = 3,
 ) -> list[str]:
     """删除空查询、重复查询和高度相似的查询。"""
     known = [
@@ -89,25 +90,27 @@ async def call_search_review_model(
     papers: list[dict],
     search_round: int,
 ) -> SearchReviewDecision:
-    """检查检索覆盖度，并在存在关键缺口时生成 1～2 个补充查询。"""
+    """检查候选数量和覆盖度，生成最多三个保留核心主题的补充查询。"""
     paper_text = "\n\n".join(
         (
             f"[Paper {index}]\n"
             f"Title: {paper.get('title', '')}\n"
+            f"Published: {paper.get('published_date') or 'Unknown'}\n"
+            f"Source: {paper.get('source') or 'Unknown'}\n"
             f"Abstract: {(paper.get('abstract') or '')[:400]}"
         )
         for index, paper in enumerate(papers[:30], 1)
     ) or "No papers were found."
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=60.0,
         max_retries=2,
     )
     response = await client.chat.completions.create(
         model=settings.light_model or settings.default_model,
-        max_tokens=800,
+        max_tokens=1500,
         messages=[
             {
                 "role": "system",
@@ -115,10 +118,12 @@ async def call_search_review_model(
                     "You review academic search coverage. Determine whether the "
                     "papers cover the original question's important topics, methods, "
                     "comparisons, empirical evidence, and limitations. Use action "
-                    "'refine' only for a material evidence gap. When refining, create "
-                    "1-2 concise English academic search queries that target the gaps "
+                    "'refine' for insufficient candidate count or a material evidence gap. When refining, create "
+                    "1-3 concise English academic search queries that target the gaps "
                     "and do not repeat previous queries. Return ONLY JSON with keys: "
                     "action, reason, missing_topics, new_queries."
+                    " Preserve the original task, subject, population and time constraints; "
+                    "do not drift into unrelated applications to increase the count."
                 ),
             },
             {
@@ -126,6 +131,8 @@ async def call_search_review_model(
                 "content": (
                     f"Original research question:\n{user_query}\n\n"
                     f"Search round:\n{search_round}\n\n"
+                    f"Unique candidate count: {len(papers)}; target: "
+                    f"{settings.min_candidate_papers}-{settings.max_candidate_papers}.\n\n"
                     "Queries in this round:\n"
                     f"{json.dumps(current_queries, ensure_ascii=False)}\n\n"
                     "Queries used before this round:\n"
@@ -140,6 +147,7 @@ async def call_search_review_model(
     try:
         return SearchReviewDecision.model_validate(data)
     except (ValueError, TypeError):
+        logger.warning("llm.validation.fallback", extra={"fields": {"parser": "search_review"}})
         fallback_queries = remove_duplicate_queries(
             [
                 f"{user_query} systematic review recent advances",
@@ -147,10 +155,10 @@ async def call_search_review_model(
                 f"{user_query} limitations future directions",
             ],
             previous_queries + current_queries,
-            limit=2,
+            limit=3,
         )
         should_refine = (
-            len(papers) < settings.min_paper_default
+            len(papers) < settings.min_candidate_papers
             and bool(fallback_queries)
         )
         return SearchReviewDecision(
@@ -198,10 +206,23 @@ async def review_search_results(state: ResearchState) -> dict:
     new_queries = remove_duplicate_queries(
         decision.new_queries,
         all_used_queries,
-        limit=2,
+        limit=3,
     )
 
-    if decision.action == "refine" and new_queries:
+    below_target = len(papers) < settings.min_candidate_papers
+    if below_target and not new_queries:
+        topic = state.get("user_query", "")
+        new_queries = remove_duplicate_queries(
+            [f"{topic} foundational concepts taxonomy",
+             f"{topic} benchmark datasets evaluation protocols",
+             f"{topic} comparative studies ablation experiments",
+             f"{topic} empirical evidence validation",
+             f"{topic} generalization robustness limitations",
+             f"{topic} systematic literature review"],
+            all_used_queries, limit=3,
+        )
+
+    if (decision.action == "refine" or below_target) and new_queries:
         return {
             # LangGraph 会先合并这个更新，再执行条件路由；因此下一次
             # Search Agent 读取到的是这些新查询，而不是上一轮查询。
@@ -212,7 +233,7 @@ async def review_search_results(state: ResearchState) -> dict:
             "previous_queries": all_used_queries,
             "search_review": {
                 "action": "refine",
-                "reason": decision.reason,
+                "reason": (f"候选不足 {settings.min_candidate_papers} 篇，继续补检。" + decision.reason) if below_target else decision.reason,
                 "missing_topics": decision.missing_topics,
                 "new_queries": new_queries,
             },

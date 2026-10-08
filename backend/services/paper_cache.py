@@ -1,3 +1,5 @@
+import logging
+from backend.core.observability import logger, report_exception
 import hashlib
 from pathlib import Path
 
@@ -32,8 +34,8 @@ async def download_pdf(paper: dict) -> str | None:
         try:
             if _is_pdf(filepath.read_bytes()[:16]):
                 return str(filepath)
-        except OSError:
-            pass
+        except OSError as exc:
+            report_exception(exc, "paper_cache.read.failed", level=logging.WARNING, paper_id=cache_key)
     
     pdf_url = paper.get("pdf_url", "")
     if not pdf_url:
@@ -51,7 +53,8 @@ async def download_pdf(paper: dict) -> str | None:
                 return None
             filepath.write_bytes(content)
             return str(filepath)
-    except Exception:
+    except Exception as exc:
+        report_exception(exc, "paper_cache.download.failed", level=logging.WARNING, paper_id=cache_key)
         return None
 
 async def _resolve_doi_to_pdf(doi: str) -> str | None:
@@ -69,8 +72,8 @@ async def _resolve_doi_to_pdf(doi: str) -> str | None:
             best = data.get("best_oa_location") or {}
             pdf_url = best.get("url_for_pdf") if isinstance(best, dict) else None
             if pdf_url:
-                print(f"    [Unpaywall] {doi[:40]} ... -> pdf found")
+                logger.info(f"    [Unpaywall] {doi[:40]} ... -> pdf found")
             return pdf_url
     except Exception as e:
-        print(f"    [Unpaywall] {doi[:40]} ... -> {type(e).__name__}")
+        report_exception(e, "paper_cache.resolve.failed", level=logging.WARNING, doi=doi)
         return None

@@ -1,3 +1,4 @@
+from backend.core.observability import trace_stage
 from langgraph.graph import StateGraph, START, END
 
 from backend.agents.state import ResearchState
@@ -13,6 +14,7 @@ def invalidate_downstream(_: ResearchState) -> dict:
     """新证据会使旧分析、旧草稿和旧评审失效。"""
     return {
         "analysis_report": None,
+        "analysis_diagnostics": None,
         "draft_sections": [],
         "critique": None,
         "approved": False,
@@ -30,6 +32,7 @@ def mark_retrieval_exhausted(_: ResearchState) -> dict:
         "retrieval_exhausted": True,
         "errors": ["达到最大搜索轮次后仍未搜索到论文"],
         "analysis_report": None,
+        "analysis_diagnostics": None,
         "draft_sections": [],
         "critique": None,
         "feedback": None,
@@ -40,17 +43,17 @@ def mark_retrieval_exhausted(_: ResearchState) -> dict:
 def build_retrieval_graph():
     graph = StateGraph(ResearchState)
 
-    graph.add_node("plan_queries", orchestrate)
-    graph.add_node("search", search_papers)
-    graph.add_node("review_search", review_search_results)
-    graph.add_node("select_candidates", select_candidate_papers)
-    graph.add_node("filter", filter_papers)
-    graph.add_node("read", read_papers)
+    graph.add_node("plan_queries", trace_stage("plan_queries", orchestrate))
+    graph.add_node("search", trace_stage("search", search_papers))
+    graph.add_node("review_search", trace_stage("review_search", review_search_results))
+    graph.add_node("select_candidates", trace_stage("select_candidates", select_candidate_papers))
+    graph.add_node("filter", trace_stage("filter", filter_papers))
+    graph.add_node("read", trace_stage("read", read_papers))
     graph.add_node(
         "invalidate_downstream",
-        invalidate_downstream,
+        trace_stage("invalidate_downstream", invalidate_downstream),
     )
-    graph.add_node("mark_retrieval_exhausted", mark_retrieval_exhausted)
+    graph.add_node("mark_retrieval_exhausted", trace_stage("mark_retrieval_exhausted", mark_retrieval_exhausted))
 
     graph.add_edge(START, "plan_queries")
     graph.add_edge("plan_queries", "search")

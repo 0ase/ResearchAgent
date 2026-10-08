@@ -5,15 +5,35 @@ __pycache__/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!.env.template
+!.env.*.template
 
 # Data directories (keep structure, ignore contents)
-data/chroma_db/*
-data/paper_cache/*
-data/figures/*
-data/research.db
-!data/*/.gitkeep
+/data/**
+!/data/**/
+!/data/**/.gitkeep
+
+# Local databases, SQLite sidecar files, backups and locks
+*.db
+*.db-*
+*.db.bak
+*.db.lock
+*.sqlite
+*.sqlite-*
+*.sqlite.bak
+*.sqlite.lock
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.bak
+*.sqlite3.lock
+
+# Temporary work and downloaded runtime files
+/tmp/
 
 # Virtual environment
 venv/
@@ -36,6 +56,15 @@ Thumbs.db
 dist/
 build/
 *.egg
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# JavaScript dependencies and Next.js generated files
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 
 # Jupyter
 .ipynb_checkpoints/
@@ -50,9 +79,9 @@ logs/
 # Test
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
 
 # Claude
 .claude/
-
-data/

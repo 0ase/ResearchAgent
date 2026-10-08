@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 import aiosqlite
+from backend.core.errors import AppError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = str(PROJECT_ROOT / "data" / "research.db")
@@ -141,8 +142,10 @@ async def get_session(session_id: str) -> dict | None:
         return None
     try:
         result = json.loads(row[5])
-    except (TypeError, json.JSONDecodeError):
-        result = {}
+        if not isinstance(result, dict):
+            raise ValueError("stored research result must be an object")
+    except (TypeError, ValueError) as exc:
+        raise AppError("STORED_DATA_INVALID", "历史研究数据损坏，无法读取。") from exc
     return {
         "session_id": row[0],
         "query": row[1],
@@ -230,8 +233,10 @@ async def get_messages(
 def _message_from_row(row) -> dict:
     try:
         citations = json.loads(row[4] or "[]")
-    except (TypeError, json.JSONDecodeError):
-        citations = []
+        if not isinstance(citations, list) or any(not isinstance(item, str) for item in citations):
+            raise ValueError("stored citations must be a list of strings")
+    except (TypeError, ValueError) as exc:
+        raise AppError("STORED_DATA_INVALID", "历史消息数据损坏，无法读取。") from exc
 
     return {
         "message_id": row[0],

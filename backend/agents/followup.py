@@ -90,7 +90,7 @@ async def answer_followup(
     insights_text = _format_insights(insights)
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=120.0,
         max_retries=2,

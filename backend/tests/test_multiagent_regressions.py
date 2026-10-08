@@ -265,6 +265,7 @@ async def test_refined_queries_replace_plan_before_second_search(monkeypatch):
 
 
 def test_candidate_pool_preserves_refined_round(monkeypatch):
+    monkeypatch.setattr(settings, "min_candidate_papers", 4)
     monkeypatch.setattr(settings, "max_candidate_papers", 4)
     papers = []
     for round_number in (1, 2):

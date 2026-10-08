@@ -1,3 +1,5 @@
+import logging
+from backend.core.observability import report_exception
 from rank_bm25 import BM25Okapi
 from backend.rag.embeddings import embed_single
 from backend.rag.vector_store import get_collection
@@ -13,7 +15,8 @@ def _get_bm25():
     collection = get_collection()
     try:
         all_data = collection.get(limit=5000)
-    except Exception:
+    except Exception as exc:
+        report_exception(exc, "hybrid_search.bm25.failed", level=logging.WARNING)
         return None, [], []
     
     current_count = len(all_data["documents"])

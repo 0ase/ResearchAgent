@@ -1,23 +1,28 @@
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from backend.config import settings
+import logging
+from backend.core.observability import report_exception
+from backend.core.errors import VectorStoreUnavailable
+from backend.rag.vector_runtime import get_worker
 
-_client = None
 
-def _get_client():
-    """Obtain or create a ChromaDB client (persisted to the hard disk)"""
-    global _client
-    if _client is None:
-        _client = chromadb.PersistentClient(
-            path=settings.chroma_persist_dir,
-            settings=ChromaSettings(anonymized_telemetry=False)
-        )
-    return _client
+class CollectionProxy:
+    def __init__(self, name: str):
+        self.name = name
+
+    def get(self, **kwargs):
+        return get_worker().call(self.name, "get", **kwargs)
+
+    def query(self, **kwargs):
+        return get_worker().call(self.name, "query", **kwargs)
+
+    def add(self, **kwargs):
+        return get_worker().call(self.name, "add", **kwargs)
+
+    def count(self):
+        return get_worker().call(self.name, "count")
 
 def get_collection(name: str = "paper"):
-    """obtain or create the collecction named paper"""
-    client = _get_client()
-    return client.get_or_create_collection(name=name)
+    """Return a handle; native operations execute in the isolated worker."""
+    return CollectionProxy(name)
 
 def add_chunks(chunks: list[dict], embeddings: list[list[float]], paper_id: str):
     """put all chunks and vectors of a paper into db
@@ -50,7 +55,10 @@ def is_paper_indexed(paper_id: str) -> bool:
             ids=[f"{paper_id}_chunk0"],
         )
         return len(result.get("ids", [])) > 0
-    except Exception:
+    except VectorStoreUnavailable:
+        raise
+    except Exception as exc:
+        report_exception(exc, "vector_store.lookup.failed", level=logging.WARNING, paper_id=paper_id)
         return False
 
 

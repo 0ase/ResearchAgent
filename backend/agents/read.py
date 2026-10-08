@@ -1,3 +1,6 @@
+import logging
+from backend.core.observability import logger, report_exception
+from backend.core.errors import VectorStoreUnavailable
 import json
 import re
 import asyncio
@@ -34,16 +37,6 @@ def _merge_paper_insights(
             used_sources.add(source)
         if len(merged) >= limit:
             return merged
-
-    # If a newly selected paper failed to parse, retain older valid evidence rather
-    # than silently shrinking the evidence pool.
-    for insight in existing_insights + new_insights:
-        source = str(insight.get("source") or "").strip()
-        if source and source not in used_sources:
-            merged.append(insight)
-            used_sources.add(source)
-        if len(merged) >= limit:
-            break
 
     return merged
 
@@ -89,7 +82,7 @@ async def read_papers(state: ResearchState) -> dict:
     #     success = await ingest_paper(paper)
     #     if success:
     #         ingested_ids.append(paper_id)
-    #         print(f"    [Read] ingested: {paper_id}")
+    #         logger.info(f"    [Read] ingested: {paper_id}")
 
     # if not ingested_ids:
     #     return {"errors": ["no papers could be ingested"], "paper_insights": []}
@@ -100,12 +93,18 @@ async def read_papers(state: ResearchState) -> dict:
             paper_id = paper.get("source_id", "unknown")
             success = await ingest_paper(paper)
             if success:
-                print(f"    [Read] ingested: {paper_id}")
+                logger.info(f"    [Read] ingested: {paper_id}")
                 return paper_id
             return None
     # 1. put the most relevant paper into db
     tasks = [ingest_one(p) for p in papers_to_read]
     raw_ids = await asyncio.gather(*tasks, return_exceptions=True)
+    for paper, result in zip(papers_to_read, raw_ids):
+        if isinstance(result, VectorStoreUnavailable):
+            raise result
+        if isinstance(result, Exception):
+            report_exception(result, "read.ingest.failed", level=logging.WARNING,
+                             paper_id=paper.get("source_id"))
     ingested_ids = [rid for rid in raw_ids if isinstance(rid, str)]
 
     if not ingested_ids:
@@ -126,19 +125,20 @@ async def read_papers(state: ResearchState) -> dict:
     try:
         query_embedding = await embed_single(query)
     except Exception as exc:
-        print(f"    [Read] query embedding failed, falling back to first chunks: {exc}")
+        report_exception(exc, "read.embedding.fallback", level=logging.WARNING)
         query_embedding = None
 
     for pid in ingested_ids:
         try:
-            data = collection.get(where={"paper_id": pid})
+            data = await asyncio.to_thread(collection.get, where={"paper_id": pid})
             docs = data.get("documents") or []
             if docs:
                 top_k = min(settings.retrieval_top_k, len(docs))
                 relevant_docs = docs[:top_k]
 
                 if query_embedding is not None:
-                    result = collection.query(
+                    result = await asyncio.to_thread(
+                        collection.query,
                         query_embeddings=[query_embedding],
                         where={"paper_id": pid},
                         n_results=top_k,
@@ -152,8 +152,10 @@ async def read_papers(state: ResearchState) -> dict:
                     {"content": document, "chunk_index": index}
                     for index, document in enumerate(relevant_docs)
                 ]
+        except VectorStoreUnavailable:
+            raise
         except Exception as e:
-            print(f"    [Read] fetch chunks failed for {pid}: {e}")
+            report_exception(e, "read.chunks.failed", level=logging.WARNING, paper_id=pid)
 
     if not paper_chunks:
         return {
@@ -167,7 +169,7 @@ async def read_papers(state: ResearchState) -> dict:
         }
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=180.0,
         max_retries=2,
@@ -210,7 +212,7 @@ async def read_papers(state: ResearchState) -> dict:
                 ]
             )
         summary = resp.choices[0].message.content.strip()
-        print(f"    [Read] {pid}: {len(summary)} chars")
+        logger.info(f"    [Read] {pid}: {len(summary)} chars")
         return {
             "query": query,
             "answer": summary,
@@ -221,12 +223,12 @@ async def read_papers(state: ResearchState) -> dict:
     tasks = [summarize_one(pid, chs) for pid, chs in paper_chunks.items()]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
     per_paper = [r for r in raw_results if isinstance(r, dict)]
-    summary_errors = [
-        f"paper summary failed: {type(result).__name__}: {result}"
-        for result in raw_results
-        if isinstance(result, Exception)
-    ]
-    print(f"[Read] LLM summarized {len(per_paper)}/{len(tasks)} papers")
+    summary_errors = []
+    for pid, result in zip(paper_chunks, raw_results):
+        if isinstance(result, Exception):
+            error_id = report_exception(result, "read.summary.failed", level=logging.WARNING, paper_id=pid)
+            summary_errors.append(f"paper summary failed: {pid}; error_id={error_id}")
+    logger.info(f"[Read] LLM summarized {len(per_paper)}/{len(tasks)} papers")
 
 
 
@@ -283,6 +285,7 @@ def _parse_paper_summaries(text: str, paper_index: dict, query: str) -> list[dic
 
     # 兜底
     if data is None:
+        logger.warning("llm.parse.fallback", extra={"fields": {"parser": "read", "characters": len(text)}})
         data = {}
 
     results = []

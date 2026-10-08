@@ -1,11 +1,12 @@
+from backend.core.observability import logger
 import json
 import re
 from openai import AsyncOpenAI
 from backend.agents.state import ResearchState
 from backend.config import settings
 
-MIN_SUB_QUERIES = 3
-MAX_SUB_QUERIES = 3
+MIN_SUB_QUERIES = 5
+MAX_SUB_QUERIES = 5
 
 
 async def orchestrate(state: ResearchState) -> dict:
@@ -14,31 +15,34 @@ async def orchestrate(state: ResearchState) -> dict:
     retrieval_focus = state.get("current_task", "").strip()
 
     system_prompt = """You are an academic research assistant.
-Your task is to break down the ORIGINAL research question into exactly 3 specific sub-queries.
+Your task is to break down the ORIGINAL research question into exactly 5 specific sub-queries.
 Each sub-query should be approached from a different perspective
 or sub-field to facilitate precise search in the thesis database.
 Never replace the original topic with a generic workflow instruction.
+Preserve the question's core concepts, research object, task, population and time constraints.
+Cover foundational work, recent methods, benchmarks, comparisons, and limitations.
+Use precise English academic terms, synonyms and acronym expansions without changing scope.
 Only return a JSON array, no other content."""
 
-    user_message = f"""Break down this research question into exactly 3 paper search sub-queries:
+    user_message = f"""Break down this research question into exactly 5 paper search sub-queries:
 Original research question: "{query}"
 Current retrieval focus: "{retrieval_focus or 'No additional focus'}"
 
 Each query must preserve the original research topic. Cover different angles such as
 recent advances, methods/comparisons, empirical evidence, and limitations.
 
-Return ONLY a JSON array with exactly 3 strings:
-["specific search query 1", "specific search query 2", "specific search query 3"]"""
+Return ONLY a JSON array with exactly 5 strings:
+["foundational query", "methods query", "benchmarks query", "comparisons query", "limitations query"]"""
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=60.0,
         max_retries=2,
     )
     response = await client.chat.completions.create(
         model=settings.light_model or settings.default_model,
-        max_tokens=800,
+        max_tokens=1500,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -47,15 +51,12 @@ Return ONLY a JSON array with exactly 3 strings:
 
     text = response.choices[0].message.content
 
-    print(f"\n[Orchestrate] RAW LLM output ({len(text)} chars):")
-    print(f"  {text[:500]}")
+    logger.info("orchestrate.response", extra={"fields": {"characters": len(text)}})
 
     # 容错解析：LLM 可能返回 ```json ... ``` 包裹的内容
     sub_queries = _ensure_sub_queries(_parse_json_array(text), query)
 
-    print(f"\n[Orchestrate] Generated {len(sub_queries)} sub-queries:")
-    for i, q in enumerate(sub_queries, 1):
-        print(f"  {i}. {q[:120]}")
+    logger.info(f"\n[Orchestrate] Generated {len(sub_queries)} sub-queries:")
 
     plan = [{"sub_query": q, "status": "pending"} for q in sub_queries]
 
@@ -63,7 +64,7 @@ Return ONLY a JSON array with exactly 3 strings:
 
 
 def _ensure_sub_queries(sub_queries: list[str], user_query: str) -> list[str]:
-    """保证检索计划始终包含 3 个与原问题相关且互不重复的查询。"""
+    """保证检索计划包含 5 个保留原研究主题的互补查询。"""
     user_query = user_query.strip()
     if not user_query:
         raise ValueError("user query must not be blank")
@@ -130,6 +131,7 @@ def _parse_json_array(text: str) -> list[str]:
             pass
 
     # 最后兜底：按行拆分
+    logger.warning("llm.parse.fallback", extra={"fields": {"parser": "orchestrate", "characters": len(text)}})
     lines = [l.strip().strip('"').strip("'").lstrip("0123456789.- ").strip('"').strip("'") for l in text.split("\n") if l.strip()]
     lines = [l for l in lines if len(l) > 5]
     if lines:

@@ -9,6 +9,7 @@ from backend.agents.contracts import SupervisorDecision
 from backend.agents.policy import validate_decision
 from backend.agents.state import ResearchState
 from backend.config import settings
+from backend.core.observability import logger
 
 ROUTES = Literal[
     "retrieval",
@@ -144,7 +145,7 @@ async def supervisor(state: ResearchState) -> Command[ROUTES]:
         )
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=60,
         max_retries=2,
@@ -187,6 +188,7 @@ async def supervisor(state: ResearchState) -> Command[ROUTES]:
             response.choices[0].message.content
         )
     except (json.JSONDecodeError, ValueError, TypeError):
+        logger.warning("llm.parse.fallback", extra={"fields": {"parser": "supervisor"}})
         raw_decision = fallback_decision(state)
     safe_decision = validate_decision(raw_decision, state)
 

@@ -9,8 +9,10 @@ class ResearchState(TypedDict, total=False):
     research_plan: list[dict]
     raw_papers: list[dict]
     selected_papers: list[dict]
+    screening_summary: dict
     paper_insights: list[dict]
     analysis_report: Optional[dict]
+    analysis_diagnostics: Optional[dict]
     draft_sections: list[dict]
     critique: Optional[dict]
     feedback: Optional[str]

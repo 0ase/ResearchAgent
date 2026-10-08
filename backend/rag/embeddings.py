@@ -4,6 +4,8 @@ Qwen text-embedding-v4: MTEB #1 globally, China-accessible, OpenAI compatible.
 Batch size capped at 10 per DashScope limit.
 """
 
+import logging
+from backend.core.observability import report_exception
 import asyncio
 from openai import AsyncOpenAI
 from backend.config import settings
@@ -39,6 +41,8 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
                 break
             except Exception as exc:
                 last_error = exc
+                report_exception(exc, "embedding.attempt.failed", level=logging.WARNING,
+                                 batch_index=i // BATCH_SIZE, attempt=attempt + 1)
                 if attempt < 2:
                     await asyncio.sleep(3 * (attempt + 1))
         else:

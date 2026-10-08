@@ -1,3 +1,5 @@
+import logging
+from backend.core.observability import logger, report_exception
 import xml.etree.ElementTree as ET
 import httpx
 import asyncio
@@ -20,22 +22,21 @@ async def search_arxiv(query: str, max_results: int = 10, timeout: int = 30) -> 
                 resp = await client.get(url, params=params)
                 if resp.status_code == 429:
                     wait = 5 * (attempt + 1)
-                    print(f"    [arxiv] 429 rate limited, waiting {wait}s...")
+                    logger.warning("source.rate_limited", extra={"fields": {"source": "arxiv", "attempt": attempt + 1, "retry_delay_seconds": wait}})
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
                 return parse_arxiv_response(resp.text)
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
+            report_exception(exc, "source.timeout", level=logging.WARNING, source="arxiv", attempt=attempt + 1)
             if attempt == 0:
-                print(f"    [arxiv] timeout ({timeout}s), retrying...")
                 await asyncio.sleep(2)
                 continue
-            print(f"    [arxiv] timeout after retry, giving up")
         except Exception as e:
+            report_exception(e, "source.failed", level=logging.WARNING, source="arxiv", attempt=attempt + 1)
             if attempt == 0:
                 await asyncio.sleep(2)
                 continue
-            print(f"    [arxiv] error: {type(e).__name__}: {e}")
 
     return []
 
@@ -45,7 +46,7 @@ def parse_arxiv_response(xml_text: str) -> list[dict]:
     root = ET.fromstring(xml_text)
     papers = []
 
-    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
     for entry in root.findall("atom:entry", ns):
         title = entry.find("atom:title", ns)
@@ -70,7 +71,9 @@ def parse_arxiv_response(xml_text: str) -> list[dict]:
             "abstract": summary.text.strip() if summary is not None and summary.text else "",
             "source": "arxiv",
             "source_id": f"arxiv:{arxiv_id}",
-            "published_date": "",
+            "published_date": entry.findtext("atom:published", default="", namespaces=ns),
+            "venue": entry.findtext("arxiv:journal_ref", default="", namespaces=ns),
+            "citation_count_known": False,
             "arxiv_id": arxiv_id,
             "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf" if arxiv_id else "",
         })

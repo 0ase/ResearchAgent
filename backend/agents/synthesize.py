@@ -46,6 +46,8 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
     evidence_blocks = []
     for i, insight in enumerate(insights, 1):
         source_id = str(insight.get("source") or f"paper_{i}")
+        if source_id not in selected_by_id:
+            continue
         paper = selected_by_id.get(source_id, {})
         title = paper.get("title") or "Title unavailable"
         evidence_blocks.append(
@@ -54,6 +56,8 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
             f"Authors: {_format_authors(paper.get('authors'))}\n"
             f"Published: {paper.get('published_date') or 'Unknown'}\n"
             f"DOI: {paper.get('doi') or 'Unknown'}\n"
+            f"Screening tier: {paper.get('screening_tier') or 'standard'}; "
+            f"relevance score: {paper.get('relevance_score', 'Unknown')}\n"
             f"Evidence: {insight.get('answer', '')}"
         )
     evidence_text = "\n\n".join(evidence_blocks)
@@ -96,6 +100,8 @@ def _build_writer_messages(state: ResearchState) -> list[dict]:
                 "Cite factual claims inline as [Source ID]. Never invent a source, "
                 "result, author, date, or bibliographic field. Include in References "
                 "only sources cited in the body and use the metadata supplied below. "
+                "Sources marked supplemental met a relaxed total screening threshold; "
+                "use their specific relevant evidence without overstating their scope. "
                 "Discuss evidence quality and uncertainty where the excerpts are "
                 "insufficient. Write in the same language as the user's question. "
                 "Do not end early: finish every required section and the References. "
@@ -202,7 +208,7 @@ async def synthesize_review(state: ResearchState) -> dict:
         return {"errors": ["no insights to synthesize"]}
 
     client = AsyncOpenAI(
-        api_key=settings.anthropic_api_key,
+        api_key=settings.llm_api_key,
         base_url=settings.base_url,
         timeout=300.0,
         max_retries=2,

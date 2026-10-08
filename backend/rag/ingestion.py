@@ -1,3 +1,7 @@
+import logging
+import asyncio
+from backend.core.observability import report_exception
+from backend.core.errors import VectorStoreUnavailable
 from backend.services.paper_cache import download_pdf
 from backend.services.chunking import chunk_paper
 from backend.rag.embeddings import embed_texts
@@ -12,15 +16,15 @@ async def ingest_paper(paper: dict) -> bool:
     paper_id = paper.get("source_id", "unknown")
 
     # 已在向量库中 → 跳过，秒返回
-    if is_paper_indexed(paper_id):
+    if await asyncio.to_thread(is_paper_indexed, paper_id):
         return True
 
     pdf_path = await download_pdf(paper)
     if pdf_path:
         try:
-            chunks = chunk_paper(pdf_path)
+            chunks = await asyncio.to_thread(chunk_paper, pdf_path)
         except Exception as exc:
-            print(f"    [Ingest] PDF parsing failed for {paper_id}: {exc}")
+            report_exception(exc, "ingestion.parse.failed", level=logging.WARNING, paper_id=paper_id)
             return False
         if not chunks:
             return False
@@ -43,9 +47,11 @@ async def ingest_paper(paper: dict) -> bool:
     texts = [c["content"] for c in chunks]
     try:
         embeddings = await embed_texts(texts)
-        add_chunks(chunks, embeddings, paper_id)
+        await asyncio.to_thread(add_chunks, chunks, embeddings, paper_id)
+    except VectorStoreUnavailable:
+        raise
     except Exception as exc:
-        print(f"    [Ingest] embedding/indexing failed for {paper_id}: {exc}")
+        report_exception(exc, "ingestion.index.failed", level=logging.WARNING, paper_id=paper_id)
         return False
     return True
 

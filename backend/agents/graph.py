@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from backend.core.observability import trace_stage
 from langgraph.graph import StateGraph, START, END
 from backend.agents.state import ResearchState
 from backend.agents.analyze import analyze_papers
@@ -45,12 +46,12 @@ def finish(state: ResearchState) -> dict:
 def build_graph() -> StateGraph:
     graph = StateGraph(ResearchState)
 
-    graph.add_node("supervisor", supervisor)
+    graph.add_node("supervisor", trace_stage("supervisor", supervisor))
     graph.add_node("retrieval", build_retrieval_graph())
-    graph.add_node("analysis", analyze_papers)
-    graph.add_node("writer", synthesize_review)
-    graph.add_node("critic", critique_output)
-    graph.add_node("finish", finish)
+    graph.add_node("analysis", trace_stage("analysis", analyze_papers))
+    graph.add_node("writer", trace_stage("writer", synthesize_review))
+    graph.add_node("critic", trace_stage("critic", critique_output))
+    graph.add_node("finish", trace_stage("finish", finish))
 
     graph.add_edge(START, "supervisor")
 

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { mockSettingsRead } from './fixtures/settings'
 
 test('agent characters keep their identities after completion and show accessible role details', async ({ page }) => {
   const errors: string[] = []
@@ -99,14 +100,16 @@ test('completed report, citations, abstracts and export work without a backend',
 })
 
 test('new research runs, collapses on completion, and follows up', async ({ page }) => {
+  await mockSettingsRead(page)
   await page.goto('/research?demo=1')
   await page.getByRole('button', { name: '新建研究', exact: true }).click()
   await expect(page.getByRole('heading', { name: '从一个问题开始。' })).toBeVisible()
   await page.screenshot({ path: '../tmp/b1gone-welcome-desktop.png' })
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByText('演示选项', { exact: true }).click()
   await page.getByLabel('演示时长').selectOption('6')
-  await page.getByLabel('目标阅读数量').selectOption('5')
-  await page.getByRole('button', { name: '完成', exact: true }).click()
+  await page.getByLabel('目标阅读数量').fill('5')
+  await page.getByRole('button', { name: '关闭设置', exact: true }).click()
   await page.getByRole('textbox', { name: '研究问题' }).fill('比较检索增强的不同方法')
   await page.getByRole('textbox', { name: '研究问题' }).press('Enter')
   await expect(page.getByRole('button', { name: '停止', exact: true })).toBeVisible()
@@ -127,11 +130,13 @@ test('new research runs, collapses on completion, and follows up', async ({ page
 })
 
 test('failed analysis keeps stage records and can retry successfully', async ({ page }) => {
+  await mockSettingsRead(page)
   await page.goto('/research?demo=1')
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByText('演示选项', { exact: true }).click()
   await page.getByLabel('演示时长').selectOption('6')
   await page.getByLabel('演示结果').selectOption('failure')
-  await page.getByRole('button', { name: '完成', exact: true }).click()
+  await page.getByRole('button', { name: '关闭设置', exact: true }).click()
   await page.getByRole('textbox', { name: '研究问题' }).fill('分析科研方法的证据一致性')
   await page.getByRole('button', { name: '提交', exact: true }).click()
   await expect(page.getByRole('heading', { name: '研究任务中断' })).toBeVisible({ timeout: 10000 })

@@ -45,6 +45,7 @@ export default function App() {
   const [paperWidth, setPaperWidth] = useState<number>()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [documentationOpen, setDocumentationOpen] = useState(false)
+  const [homeEntryMotion, setHomeEntryMotion] = useState(false)
   const [sourcePaper, setSourcePaper] = useState<Paper | null>(null)
   const [highlightedPaper, setHighlightedPaper] = useState<string | null>(null)
   const [settings, setSettings] = useState<DemoSettings>(initialSettings)
@@ -132,6 +133,17 @@ export default function App() {
     navigate('research')
     resetView(null)
     window.requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
+  useEffect(() => {
+    if (!homeEntryMotion) return
+    const timer = window.setTimeout(() => setHomeEntryMotion(false), 400)
+    return () => window.clearTimeout(timer)
+  }, [homeEntryMotion])
+
+  function startFromHome(question: string) {
+    setHomeEntryMotion(!window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.hidden)
+    beginResearch(question)
   }
 
   function beginResearch(question: string, options = settings, previousQuestion?: string) {
@@ -268,13 +280,14 @@ export default function App() {
   const showDesktopPapers = papersOpen && hasReport && !narrow
 
   return <div className={page === 'home' ? 'home-app' : `app-shell ${showDesktopPapers ? 'with-papers' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-    {page === 'home' ? <HomePage onStart={question => beginResearch(question)} onSettings={() => setSettingsOpen(true)} onDocumentation={() => setDocumentationOpen(true)} /> : <>
+    {page === 'home' ? <HomePage onStart={startFromHome} onWorkspace={newResearch} onSettings={() => setSettingsOpen(true)} onDocumentation={() => setDocumentationOpen(true)} suspended={settingsOpen || documentationOpen} /> : <>
     <a className="skip-link" href="#workspace">跳到研究内容</a>
     <aside ref={sidebarRef} className="desktop-sidebar" aria-label="侧边栏">
       {sidebarCollapsed ? <div className="collapsed-sidebar"><button ref={expandSidebarRef} className="icon-button" onClick={expandSidebar} aria-label="展开侧边栏" aria-expanded="false" aria-controls="desktop-sidebar-content" title="展开侧边栏"><PixelIcon name="expand" /></button></div> : null}
       <div id="desktop-sidebar-content" hidden={sidebarCollapsed}>{sidebar}</div>
     </aside>
-    <main id="workspace" className="workspace" tabIndex={-1}>
+    <main id="workspace" className={'workspace' + (homeEntryMotion ? ' home-research-entry' : '')} tabIndex={-1}>
+      {homeEntryMotion ? <span className="home-entry-line" aria-hidden="true" /> : null}
       <div className="mobile-toolbar"><button className="icon-button" onClick={() => setSidebarOpen(true)} aria-label="打开研究记录"><PixelIcon name="menu" /></button><button className="brand-home-button" onClick={goHome} aria-label="返回首页"><Wordmark /></button><button className="icon-button" onClick={newResearch} aria-label="新建研究"><PixelIcon name="plus" /></button></div>
       <div className="workspace-scroll" ref={contentRef}>
         {!demo && !['后端已连接', '正在连接后端…'].includes(connection) ? <p className="connection-error" role="alert">{connection}<button onClick={() => window.location.reload()}>重新连接</button></p> : null}
@@ -315,16 +328,14 @@ export default function App() {
     {narrow ? <Dialog open={papersOpen && Boolean(hasReport)} onClose={() => setPapersOpen(false)} labelId="papers-heading" className="papers-dialog">{papersOpen && hasReport ? <PaperResizeHandle preferredWidth={paperWidth} onWidthChange={setPaperWidth} /> : null}{panel}</Dialog> : null}
     </>}
     <DocumentationDialog open={documentationOpen} onClose={() => setDocumentationOpen(false)} onWorkspace={() => { setDocumentationOpen(false); navigate('research') }} />
-    {!demo && settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} paperCount={settings.paperCount} onPaperCount={paperCount => setSettings(current => ({ ...current, paperCount }))} /> : null}
-    <Dialog open={demo && settingsOpen} onClose={() => setSettingsOpen(false)} labelId="settings-heading" className="settings-dialog">
-      <div className="dialog-heading"><h2 id="settings-heading">原型设置</h2><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="关闭设置"><PixelIcon name="close" /></button></div>
-      <p className="dialog-intro">调整下一次研究的演示方式。</p>
-      <label className="setting-field"><span>目标阅读数量</span><select value={settings.paperCount} onChange={event => setSettings({ ...settings, paperCount: Number(event.target.value) })}><option value={5}>5 篇</option><option value={10}>10 篇</option><option value={15}>15 篇</option></select></label>
-      <label className="setting-field"><span>演示时长</span><select value={settings.duration} onChange={event => setSettings({ ...settings, duration: Number(event.target.value) })}><option value={6}>快速 · 6 秒</option><option value={12}>标准 · 12 秒</option><option value={24}>慢速 · 24 秒</option></select></label>
-      <label className="setting-field"><span>演示结果</span><select value={settings.outcome} onChange={event => setSettings({ ...settings, outcome: event.target.value as DemoSettings['outcome'] })}><option value="success">完成研究</option><option value="failure">模拟分析失败</option></select></label>
-      <p className="settings-note">当前使用示例报告与文献；所有研究在浏览器本地模拟。</p>
-      <button className="key-button dialog-done" onClick={() => setSettingsOpen(false)}>完成</button>
-    </Dialog>
+    {settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} paperCount={settings.paperCount} onPaperCount={paperCount => setSettings(current => ({ ...current, paperCount }))}>
+      {demo ? <details className="settings-group">
+        <summary>演示选项</summary>
+        <p className="settings-detail">研究使用示例报告与文献，在浏览器本地模拟；环境配置仍通过下方表单保存到本机后端。</p>
+        <label className="setting-field"><span>演示时长</span><select value={settings.duration} onChange={event => setSettings(current => ({ ...current, duration: Number(event.target.value) }))}><option value={6}>快速 · 6 秒</option><option value={12}>标准 · 12 秒</option><option value={24}>慢速 · 24 秒</option></select></label>
+        <label className="setting-field"><span>演示结果</span><select value={settings.outcome} onChange={event => setSettings(current => ({ ...current, outcome: event.target.value as DemoSettings['outcome'] }))}><option value="success">完成研究</option><option value="failure">模拟分析失败</option></select></label>
+      </details> : null}
+    </SettingsDialog> : null}
     <Dialog open={Boolean(sourcePaper)} onClose={() => setSourcePaper(null)} labelId="source-heading" className="source-dialog">
       <div className="dialog-heading"><h2 id="source-heading">论文原文</h2><button className="icon-button" onClick={() => setSourcePaper(null)} aria-label="关闭论文原文"><PixelIcon name="close" /></button></div>
       <h3>{sourcePaper?.title}</h3><p>这是一条界面演示文献，暂时没有真实原文链接。</p><p>接入后端后，这里会打开论文原文或 PDF。</p><button className="key-button dialog-done" onClick={() => setSourcePaper(null)}>返回文献</button>

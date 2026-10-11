@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type { SettingsSnapshot } from '../types'
 import { ApiError, loadSettings, saveSettings } from '../services/apiClient'
 import { Dialog } from './Dialog'
@@ -12,7 +12,7 @@ const groups = [
 const secretLabels: Record<string, string> = { openai_api_key: 'OpenAI / 兼容密钥', anthropic_api_key: '备用兼容密钥（ANTHROPIC）', dashscope_api_key: 'DashScope 嵌入密钥', semantic_scholar_api_key: 'Semantic Scholar 密钥', pubmed_api_key: 'PubMed 密钥' }
 const runtimeLabels: Record<string, string> = { config_file: '配置文件', session_database: '会话数据库', vector_directory: '向量库目录', paper_cache_directory: '论文缓存', log_directory: '日志目录' }
 
-export function SettingsDialog({ onClose, paperCount, onPaperCount }: { onClose: () => void; paperCount: number; onPaperCount: (count: number) => void }) {
+export function SettingsDialog({ onClose, paperCount, onPaperCount, children }: { onClose: () => void; paperCount: number; onPaperCount: (count: number) => void; children?: ReactNode }) {
   const [snapshot, setSnapshot] = useState<SettingsSnapshot>()
   const [values, setValues] = useState<Record<string, string | number>>({})
   const [secrets, setSecrets] = useState<Record<string, string>>({})
@@ -44,6 +44,7 @@ export function SettingsDialog({ onClose, paperCount, onPaperCount }: { onClose:
     <p className="dialog-intro">配置保存到本机，重启后端生效。当前任务继续使用启动时的配置。</p>
     <label className="setting-field"><span>目标阅读数量</span><input type="number" min={3} max={15} value={paperCount} onChange={event => { const count = Number(event.target.value); if (count >= 3 && count <= 15) onPaperCount(count) }} /></label>
     <p className="settings-detail">目标数量用于下一次新研究。追问沿用当前研究的文献。</p>
+    {children}
     {error ? <p className="settings-error" role="alert">{error}</p> : null}
     {notice ? <p className="settings-success" role="status">{notice}</p> : null}
     {!snapshot && !error ? <p role="status">读取配置中…</p> : null}

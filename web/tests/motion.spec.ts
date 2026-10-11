@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { mockSettingsRead } from './fixtures/settings'
 
 async function advanceToPhase(page: Page, hint: Locator, phase: string) {
   for (let attempt = 0; attempt < 120; attempt++) {
@@ -53,6 +54,7 @@ test('example questions decode and delete without becoming submitted input', asy
 })
 
 test('settings gear steps clockwise to 180 degrees and reverses to its origin on leave', async ({ page }) => {
+  await mockSettingsRead(page)
   await page.goto('/research?demo=1')
   const hoverTarget = page.locator('.desktop-sidebar .settings-gear')
   const gear = hoverTarget.locator('.settings-gear-rotor')
@@ -93,7 +95,7 @@ test('settings gear steps clockwise to 180 degrees and reverses to its origin on
   expect(backward.some(angle => angle > 0 && angle < 180)).toBe(true)
   expect(backward.every((angle, index) => index === 0 || angle <= backward[index - 1])).toBe(true)
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: '原型设置' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '研究设置' })).toBeVisible()
   await expect(page.locator('.prompt-animated-hint')).toHaveCount(0)
 })
 

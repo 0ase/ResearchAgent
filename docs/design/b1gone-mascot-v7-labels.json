@@ -1,0 +1,55 @@
+{
+  "selected_reference": "b1gone-mascot-selected-reference.png",
+  "asset": "b1gone-mascot-v7.png",
+  "source_record": "b1gone-mascot-v2-questions.json",
+  "source_function": "backend.agents.orchestrator.orchestrate",
+  "time_range": [
+    "2024-10-11",
+    "2026-10-11"
+  ],
+  "display_note": "English labels are concise display translations of four previously generated queries; full original queries and full translations are preserved below.",
+  "input": {
+    "original": "Transformer架构最近两年内的创新（时间范围：2024-10-11 至 2026-10-11）",
+    "english": "TRANSFORMER ARCHITECTURE: WHAT'S NEW OVER THE PAST TWO YEARS?",
+    "line_breaks": [
+      "TRANSFORMER",
+      "ARCHITECTURE:",
+      "WHAT'S NEW OVER",
+      "THE PAST TWO YEARS?"
+    ]
+  },
+  "outputs": [
+    {
+      "round": 2,
+      "index": 1,
+      "color": "orange-red",
+      "full": "What innovations in long-sequence modeling and attention mechanisms have emerged in Transformer architectures from 2024 to 2026?",
+      "display": "NEW ATTENTION\nMECHANISMS?",
+      "original": "2024-2026年Transformer在长序列建模与注意力机制方面有哪些基础性创新？"
+    },
+    {
+      "round": 2,
+      "index": 2,
+      "color": "golden-yellow",
+      "full": "What new methods have emerged in efficient Transformer variants, including sparse, linear and hybrid architectures, from 2024 to 2026?",
+      "display": "NEW EFFICIENT\nVARIANTS?",
+      "original": "2024-2026年Transformer稀疏化、线性化及混合架构等高效变体有哪些新方法？"
+    },
+    {
+      "round": 2,
+      "index": 3,
+      "color": "teal",
+      "full": "Which benchmarks and empirical datasets evaluate Transformer architecture innovations over the past two years?",
+      "display": "WHICH BENCHMARKS\nAND DATASETS?",
+      "original": "近两年有哪些针对Transformer架构创新的评测基准与实证数据集？"
+    },
+    {
+      "round": 2,
+      "index": 4,
+      "color": "violet",
+      "full": "How have different Transformer variants improved inference efficiency and accuracy from 2024 to 2026?",
+      "display": "EFFICIENCY AND\nACCURACY GAINS?",
+      "original": "2024-2026年不同Transformer变体在推理效率与精度上有哪些对比改进？"
+    }
+  ]
+}

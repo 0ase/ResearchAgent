@@ -38,7 +38,7 @@ test('real research uses returned Markdown, repeated records and actual reading/
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await fixture(page)
-  await page.goto('/')
+  await page.goto('/research')
   await expect(page.getByText('后端已连接', { exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: '研究问题' }).fill('研究当前问题')
   await page.getByRole('button', { name: '提交', exact: true }).click()
@@ -69,7 +69,7 @@ test('history loads report and followup retries retain the same message id', asy
       ? route.fulfill({ status: 503, json: { error: { message: '模型暂时不可用', error_id: 'followup-error-1' } } })
       : route.fulfill({ json: { session_id: 'server-session-1', answer: '来自当前文献的回答 [Source A]', citations: ['A'] } })
   })
-  await page.goto('/')
+  await page.goto('/research')
   await page.getByRole('button', { name: /历史研究问题/ }).click()
   await expect(page.getByRole('heading', { name: '真实研究综述' })).toBeVisible()
   await expect(page.locator('.chat-message')).toHaveCount(0)
@@ -85,7 +85,7 @@ test('history loads report and followup retries retain the same message id', asy
 
 test('stream errors retain backend tracking ids and incomplete streams never show a report', async ({ page }) => {
   await fixture(page, { streamBody: frame({ event: 'error', message: '分析生成达到长度上限', error_id: 'analysis-error-9', request_id: 'request-9' }) })
-  await page.goto('/')
+  await page.goto('/research')
   await page.getByRole('textbox', { name: '研究问题' }).fill('分析失败用例')
   await page.getByRole('button', { name: '提交', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('analysis-error-9')
@@ -98,7 +98,7 @@ test('stream errors retain backend tracking ids and incomplete streams never sho
 
 test('SSE decoder handles single-byte Chinese chunks, CRLF, multiline data and trailing done', async ({ page }) => {
   await fixture(page)
-  await page.goto('/')
+  await page.goto('/research')
   const outcome = await page.evaluate(async () => {
     const modulePath = '/src/services/apiClient.ts'
     const { readEventStream } = await import(modulePath)
@@ -113,7 +113,7 @@ test('SSE decoder handles single-byte Chinese chunks, CRLF, multiline data and t
 
 test('historical direct source ids and DOI aliases match only known read papers', async ({ page }) => {
   await fixture(page)
-  await page.goto('/')
+  await page.goto('/research')
   const outcome = await page.evaluate(async () => {
     const modulePath = '/src/services/researchAdapter.ts'
     const { resultPapers } = await import(modulePath)
@@ -136,7 +136,7 @@ test('settings show masked status and send only changed fields and explicit secr
     update = route.request().postDataJSON()
     return route.fulfill({ json: { ...snapshot, values: { ...snapshot.values, default_model: 'next-model' }, pending_fields: ['default_model', 'openai_api_key'], restart_required: true } })
   })
-  await page.goto('/')
+  await page.goto('/research')
   await page.getByRole('button', { name: '设置', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '研究设置' })
   await expect(dialog).toContainText('当前已配置')
@@ -156,7 +156,7 @@ test('stop aborts the connection without claiming server cancellation confirmati
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   await page.route('**/api/research/stream', async route => { await gate; await route.abort().catch(() => {}) })
-  await page.goto('/')
+  await page.goto('/research')
   await page.getByRole('textbox', { name: '研究问题' }).fill('停止研究用例')
   const requested = page.waitForRequest('**/api/research/stream')
   await page.getByRole('button', { name: '提交', exact: true }).click()

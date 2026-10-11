@@ -1,0 +1,185 @@
+{
+  "query": "Transformer架构最近两年内的创新（时间范围：2024-10-11 至 2026-10-11）",
+  "display_prompt": "Transformer 架构最近两年内的创新",
+  "time_range": [
+    "2024-10-11",
+    "2026-10-11"
+  ],
+  "source_function": "backend.agents.orchestrator.orchestrate",
+  "model": "deepseek-flash",
+  "generated_at": "2026-10-11T04:04:39.027113+00:00",
+  "scope": "decomposition only; no paper search or factual research conclusions",
+  "sampling_note": "Two earlier default-parameter calls triggered deterministic fallback and were excluded. These samples reuse the unchanged node and prompts with temporary request options recorded per round.",
+  "display_labels": [
+    {
+      "round": 1,
+      "query_index": 1,
+      "original": "近两年Transformer架构有哪些基础性创新？",
+      "display_label": "Transformer 有哪些基础性创新？"
+    },
+    {
+      "round": 1,
+      "query_index": 2,
+      "original": "2024-2026年Transformer有哪些新方法？",
+      "display_label": "近两年有哪些新架构方法？"
+    },
+    {
+      "round": 1,
+      "query_index": 3,
+      "original": "近两年Transformer架构有哪些评测基准？",
+      "display_label": "如何评测这些架构创新？"
+    },
+    {
+      "round": 1,
+      "query_index": 4,
+      "original": "2024-2026年Transformer架构改进了哪些性能？",
+      "display_label": "架构改进提升了哪些性能？"
+    },
+    {
+      "round": 1,
+      "query_index": 5,
+      "original": "近两年Transformer架构创新有哪些局限？",
+      "display_label": "这些架构创新有哪些局限？"
+    },
+    {
+      "round": 2,
+      "query_index": 1,
+      "original": "2024-2026年Transformer在长序列建模与注意力机制方面有哪些基础性创新？",
+      "display_label": "长序列与注意力机制有哪些创新？"
+    },
+    {
+      "round": 2,
+      "query_index": 2,
+      "original": "2024-2026年Transformer稀疏化、线性化及混合架构等高效变体有哪些新方法？",
+      "display_label": "稀疏、线性及混合架构如何演进？"
+    },
+    {
+      "round": 2,
+      "query_index": 3,
+      "original": "近两年有哪些针对Transformer架构创新的评测基准与实证数据集？",
+      "display_label": "哪些基准和数据集提供实证？"
+    },
+    {
+      "round": 2,
+      "query_index": 4,
+      "original": "2024-2026年不同Transformer变体在推理效率与精度上有哪些对比改进？",
+      "display_label": "推理效率与精度如何权衡？"
+    },
+    {
+      "round": 2,
+      "query_index": 5,
+      "original": "2024-2026年Transformer架构创新在计算成本、泛化与可扩展性上有何局限？",
+      "display_label": "计算成本、泛化与扩展有何局限？"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "state": {
+        "user_query": "Transformer架构最近两年内的创新（时间范围：2024-10-11 至 2026-10-11）",
+        "current_task": "这是首页视觉设计的真实研究问题拆解示例。请使用简洁中文疑问句表示子查询，每句尽量不超过25个汉字，保留必要的英文架构术语。请保留原问题的架构创新对象和两年时间范围。"
+      },
+      "model_response": {
+        "raw_content": "[\"近两年Transformer架构有哪些基础性创新？\", \"2024-2026年Transformer有哪些新方法？\", \"近两年Transformer架构有哪些评测基准？\", \"2024-2026年Transformer架构改进了哪些性能？\", \"近两年Transformer架构创新有哪些局限？\"]",
+        "finish_reason": "stop",
+        "usage": {
+          "completion_tokens": 59,
+          "prompt_tokens": 288,
+          "total_tokens": 347,
+          "completion_tokens_details": null,
+          "prompt_tokens_details": {
+            "audio_tokens": null,
+            "cached_tokens": 0
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 288
+        },
+        "request_options": {
+          "max_tokens": 4000,
+          "reasoning_effort": "none",
+          "extra_body": {
+            "thinking": {
+              "type": "disabled"
+            }
+          }
+        }
+      },
+      "research_plan": [
+        {
+          "sub_query": "近两年Transformer架构有哪些基础性创新？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "2024-2026年Transformer有哪些新方法？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "近两年Transformer架构有哪些评测基准？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "2024-2026年Transformer架构改进了哪些性能？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "近两年Transformer架构创新有哪些局限？",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "state": {
+        "user_query": "Transformer架构最近两年内的创新（时间范围：2024-10-11 至 2026-10-11）",
+        "current_task": "这是首页视觉设计的真实研究问题拆解示例。请使用简洁中文疑问句表示子查询，每句尽量不超过25个汉字，保留必要的英文架构术语。请保留原问题的架构创新对象和两年时间范围。第二轮请提供与以下已生成子问题互补的不同研究角度，避免语义重复：[\"近两年Transformer架构有哪些基础性创新？\", \"2024-2026年Transformer有哪些新方法？\", \"近两年Transformer架构有哪些评测基准？\", \"2024-2026年Transformer架构改进了哪些性能？\", \"近两年Transformer架构创新有哪些局限？\"]"
+      },
+      "model_response": {
+        "raw_content": "```json\n[\n  \"2024-2026年Transformer在长序列建模与注意力机制方面有哪些基础性创新？\",\n  \"2024-2026年Transformer稀疏化、线性化及混合架构等高效变体有哪些新方法？\",\n  \"近两年有哪些针对Transformer架构创新的评测基准与实证数据集？\",\n  \"2024-2026年不同Transformer变体在推理效率与精度上有哪些对比改进？\",\n  \"2024-2026年Transformer架构创新在计算成本、泛化与可扩展性上有何局限？\"\n]\n```",
+        "finish_reason": "stop",
+        "usage": {
+          "completion_tokens": 120,
+          "prompt_tokens": 366,
+          "total_tokens": 486,
+          "completion_tokens_details": null,
+          "prompt_tokens_details": {
+            "audio_tokens": null,
+            "cached_tokens": 0
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 366
+        },
+        "request_options": {
+          "max_tokens": 4000,
+          "reasoning_effort": "none",
+          "extra_body": {
+            "thinking": {
+              "type": "disabled"
+            }
+          }
+        }
+      },
+      "research_plan": [
+        {
+          "sub_query": "2024-2026年Transformer在长序列建模与注意力机制方面有哪些基础性创新？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "2024-2026年Transformer稀疏化、线性化及混合架构等高效变体有哪些新方法？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "近两年有哪些针对Transformer架构创新的评测基准与实证数据集？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "2024-2026年不同Transformer变体在推理效率与精度上有哪些对比改进？",
+          "status": "pending"
+        },
+        {
+          "sub_query": "2024-2026年Transformer架构创新在计算成本、泛化与可扩展性上有何局限？",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

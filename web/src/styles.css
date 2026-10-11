@@ -56,6 +56,8 @@ button { border: 0; }
 .sidebar-top { margin: 0 9px; border-bottom: 1px solid #737776; padding-bottom: 27px; }
 .brand-line { display: flex; align-items: center; justify-content: space-between; margin: 0 5px 23px; }
 .wordmark { display: block; width: 196px; max-width: 100%; height: auto; color: var(--color-keycap); }
+.brand-home-button { display: block; max-width: 100%; padding: 0; background: transparent; color: inherit; }
+.mobile-toolbar .brand-home-button:focus-visible { outline-color: var(--color-keycap); }
 .key-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 6px 17px; border: 1px solid #686d68; border-radius: 4px; background: var(--color-keycap); color: #121716; box-shadow: inset 0 1px 0 #f8f2e2, 0 2px 0 #667074; font-family: var(--font-terminal); font-size: 18px; line-height: 1.4; white-space: nowrap; }
 .key-button:hover { background: #f0e8d2; }
 .key-button:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #f8f2e2; }
@@ -78,6 +80,13 @@ button { border: 0; }
 .sidebar-settings-row .sidebar-collapse { height: 31px; margin-right: -7px; }
 .settings-button { display: flex; align-items: center; gap: 18px; padding: 0 6px; flex: 1; background: transparent; color: #e9e6db; font-family: var(--font-terminal); font-size: 20px; text-align: left; }
 .settings-button svg { width: 31px; height: 31px; }
+.settings-gear { display: inline-block; width: 31px; height: 31px; flex: none; }
+.settings-gear-rotor { display: block; width: 100%; height: 100%; transform-origin: center; transform: rotate(0deg); transition: transform 1s steps(6, end); }
+.settings-gear svg { display: block; }
+.settings-button:focus-visible .settings-gear-rotor { transform: rotate(180deg); }
+@media (hover: hover) {
+  .settings-gear:hover .settings-gear-rotor { transform: rotate(180deg); }
+}
 .prototype-note { font-family: var(--font-terminal); font-size: 12px; color: #b8bdbb; margin: 10px 6px 0; }
 
 .workspace { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -111,6 +120,12 @@ button { border: 0; }
 .report-actions .key-button { font-size: 17px; }
 .report-actions .key-button svg { width: 19px; height: 19px; }
 .composer { display: flex; align-items: stretch; gap: 10px; }
+.composer-input { position: relative; flex: 1; min-width: 0; }
+.composer-input textarea { display: block; width: 100%; }
+.composer-input.has-animated-hint textarea::placeholder { color: transparent; }
+.prompt-animated-hint { position: absolute; inset: 1px; padding: 10px 16px; pointer-events: none; overflow: hidden; white-space: nowrap; color: #304145; font-family: var(--font-terminal); font-size: 18px; line-height: 1.4; }
+.prompt-cipher-glyph { display: inline-block; width: 1em; text-align: center; font-family: var(--font-mono); }
+.prompt-hint-cursor { font-family: var(--font-mono); }
 .composer textarea { flex: 1; min-width: 0; min-height: 50px; height: 50px; max-height: 150px; resize: vertical; border: 1px solid #4a646a; border-radius: 4px; padding: 10px 16px; background: transparent; color: var(--color-ink); font-family: var(--font-terminal); font-size: 18px; line-height: 1.4; scrollbar-width: thin; }
 .composer textarea::placeholder { color: #304145; opacity: 1; }
 .composer textarea:focus { outline-offset: 2px; }
@@ -289,6 +304,7 @@ dialog::backdrop { background: #131b1f80; }
   .workspace-footer { padding-bottom: max(15px, env(safe-area-inset-bottom)); }
   .composer { gap: 8px; }
   .composer textarea { font-size: 16px; padding: 10px; }
+  .prompt-animated-hint { font-size: 16px; padding: 10px; }
   .submit-button { min-width: 72px; padding-inline: 10px; font-size: 16px; gap: 7px; }
   .submit-button svg { width: 18px; height: 18px; }
   .welcome { padding-bottom: 50px; }

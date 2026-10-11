@@ -2,14 +2,14 @@ import type { ResearchSession } from '../types'
 import { formatDate } from '../data/demo'
 import { PixelIcon, Wordmark } from './PixelIcon'
 
-export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClose, onCollapse, demo = false }: {
+export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClose, onCollapse, onHome, demo = false }: {
   sessions: ResearchSession[]; activeId: string | null; onSelect: (id: string) => void;
-  onNew: () => void; onSettings: () => void; onClose?: () => void; onCollapse?: () => void
+  onNew: () => void; onSettings: () => void; onClose?: () => void; onCollapse?: () => void; onHome?: () => void
   demo?: boolean
 }) {
   return <div className={`sidebar-inner ${onCollapse ? 'has-collapse-control' : ''}`}>
     <div className="sidebar-top">
-      <div className="brand-line"><Wordmark />{onClose ? <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭研究记录"><PixelIcon name="close" /></button> : null}</div>
+      <div className="brand-line">{onHome ? <button className="brand-home-button" onClick={onHome} aria-label="返回首页" title="返回首页"><Wordmark /></button> : <Wordmark />}{onClose ? <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭研究记录"><PixelIcon name="close" /></button> : null}</div>
       <button className="key-button new-research" onClick={onNew}><PixelIcon name="plus" /><span>新建研究</span></button>
     </div>
     <nav className="history-nav" aria-label="研究记录">
@@ -26,7 +26,7 @@ export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClo
     </nav>
     <div className="sidebar-bottom">
       <div className="sidebar-settings-row">
-        <button className="settings-button" onClick={onSettings}><PixelIcon name="settings" /><span>设置</span></button>
+        <button className="settings-button" onClick={onSettings}><span className="settings-gear" aria-hidden="true"><span className="settings-gear-rotor"><PixelIcon name="settings" /></span></span><span>设置</span></button>
         {onCollapse ? <button className="icon-button sidebar-collapse" onClick={onCollapse} aria-label="收起侧边栏" aria-expanded="true" aria-controls="desktop-sidebar-content" title="收起侧边栏"><PixelIcon name="collapse" /></button> : null}
       </div>
       <p className="prototype-note">{demo ? '交互原型 · 示例数据' : 'B1GONE · 本机研究工作台'}</p>

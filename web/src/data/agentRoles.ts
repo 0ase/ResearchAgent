@@ -48,6 +48,8 @@ const roles: Record<AgentKind, AgentRole> = {
 }
 
 export function getAgentRole(agent: string): AgentRole {
+  const aliases: Record<string, AgentKind> = { orchestrate: 'supervisor', plan_queries: 'supervisor', analyze: 'analysis', writer: 'synthesize', review_search: 'critic' }
+  if (Object.hasOwn(aliases, agent)) return roles[aliases[agent]]
   if (Object.hasOwn(roles, agent)) return roles[agent as AgentKind]
   return { avatar: 'supervisor', name: '研究助手', tool: '研究终端', description: '负责当前研究阶段的任务处理与结果整理。', input: '当前阶段资料', output: '阶段结果与记录' }
 }

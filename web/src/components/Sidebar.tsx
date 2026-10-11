@@ -2,9 +2,10 @@ import type { ResearchSession } from '../types'
 import { formatDate } from '../data/demo'
 import { PixelIcon, Wordmark } from './PixelIcon'
 
-export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClose, onCollapse }: {
+export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClose, onCollapse, demo = false }: {
   sessions: ResearchSession[]; activeId: string | null; onSelect: (id: string) => void;
   onNew: () => void; onSettings: () => void; onClose?: () => void; onCollapse?: () => void
+  demo?: boolean
 }) {
   return <div className={`sidebar-inner ${onCollapse ? 'has-collapse-control' : ''}`}>
     <div className="sidebar-top">
@@ -28,7 +29,7 @@ export function Sidebar({ sessions, activeId, onSelect, onNew, onSettings, onClo
         <button className="settings-button" onClick={onSettings}><PixelIcon name="settings" /><span>设置</span></button>
         {onCollapse ? <button className="icon-button sidebar-collapse" onClick={onCollapse} aria-label="收起侧边栏" aria-expanded="true" aria-controls="desktop-sidebar-content" title="收起侧边栏"><PixelIcon name="collapse" /></button> : null}
       </div>
-      <p className="prototype-note">交互原型 · 示例数据</p>
+      <p className="prototype-note">{demo ? '交互原型 · 示例数据' : 'B1GONE · 本机研究工作台'}</p>
     </div>
   </div>
 }

@@ -325,3 +325,46 @@ dialog::backdrop { background: #131b1f80; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+/* Real API content uses the existing palette and reading typography. */
+.connection-error { border: 1px solid #75635c; padding: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.connection-error button { text-decoration: underline; margin-left: 14px; cursor: pointer; }
+.markdown-report { padding-top: 24px; overflow-wrap: anywhere; }
+.markdown-report > h1 { margin-bottom: 16px; }
+.markdown-report > h2 { border-top: 1px solid var(--color-rule); margin-top: 24px; padding-top: 18px; }
+.markdown-report p, .chat-message p { margin-block: 12px; }
+.markdown-report ul, .markdown-report ol, .chat-message ul, .chat-message ol { padding-left: 26px; list-style: revert; line-height: 1.9; }
+.markdown-report pre, .chat-message pre { overflow-x: auto; background: #2b383c; color: #d6dfdc; padding: 14px; }
+.markdown-report a, .chat-message a { text-decoration: underline; }
+.markdown-table { overflow-x: auto; margin-block: 18px; }
+.markdown-table table { border-collapse: collapse; width: 100%; }
+.markdown-table th, .markdown-table td { border: 1px solid var(--color-rule); padding: 10px; text-align: left; }
+.report-warnings { border: 1px solid #75635c; padding: 12px; margin-top: 24px; }
+.followup-messages { margin-top: 28px; }
+.chat-message { padding: 16px 0; border-top: 1px solid var(--color-rule); line-height: 1.9; overflow-wrap: anywhere; }
+.chat-message h3 { font-size: 17px; font-weight: 600; }
+.chat-user { background: #e7dec51c; padding: 16px; }
+.request-trace { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.paper-actions a { display: inline-flex; align-items: center; gap: 8px; }
+.paper-actions a svg { width: 16px; height: 16px; }
+.source-unavailable { font-size: 12px; color: #354c52; }
+.live-settings { width: 680px; }
+.live-settings fieldset { border: 0; padding: 0; min-width: 0; }
+.settings-group { border-top: 1px solid var(--color-rule); padding-top: 16px; margin-top: 20px; }
+.settings-group h3 { font-size: 18px; font-weight: 600; }
+.live-settings .setting-field { gap: 14px; margin-bottom: 8px; }
+.live-settings input:not([type=checkbox]) { width: 52%; min-width: 0; min-height: 40px; border: 1px solid #5e767d; border-radius: 3px; padding: 7px; background: #a8b6b8; color: #15272d; }
+.settings-detail, .secret-status { font-size: 12px; line-height: 1.8; margin-bottom: 12px; overflow-wrap: anywhere; }
+.secret-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.secret-status input { margin-right: 6px; }
+.secret-field { margin-top: 16px; }
+.settings-error, .settings-success { padding: 12px; border: 1px solid #75635c; line-height: 1.8; overflow-wrap: anywhere; }
+.settings-success { border-color: #415b62; }
+.runtime-info p { display: flex; flex-direction: column; margin-block: 12px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.live-settings .dialog-done { margin-top: 20px; }
+@media (max-width: 700px) {
+  .live-settings .setting-field { align-items: flex-start; flex-direction: column; }
+  .live-settings input:not([type=checkbox]) { width: 100%; }
+  .secret-status label { min-height: 36px; display: flex; align-items: center; }
+  .composer-hint { flex-wrap: wrap; gap: 8px; }
+}

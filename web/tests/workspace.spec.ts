@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('agent characters keep their identities after completion and show accessible role details', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('/?demo=1')
   await page.evaluate(() => document.fonts.ready)
   await page.getByRole('button', { name: '研究过程' }).click()
   await expect(page.getByRole('button', { name: '查看调度员职责：拆解研究问题，已完成', exact: true })).toBeVisible()
@@ -32,7 +32,7 @@ test('agent characters keep their identities after completion and show accessibl
 })
 
 test('sidebar collapse preserves input and paper resizing survives reopening and smaller windows', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?demo=1')
   const workspace = page.locator('.workspace')
   const papers = page.locator('.paper-panel')
   const before = await workspace.boundingBox()
@@ -73,7 +73,7 @@ test('completed report, citations, abstracts and export work without a backend',
   const pageErrors: string[] = []
   page.on('request', request => { if (request.url().includes('/api/') || !request.url().startsWith('http://127.0.0.1:5173')) unexpectedRequests.push(request.url()) })
   page.on('pageerror', error => pageErrors.push(error.message))
-  await page.goto('/')
+  await page.goto('/?demo=1')
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('heading', { name: '研究综述', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '研究过程' })).toHaveAttribute('aria-expanded', 'false')
@@ -99,7 +99,7 @@ test('completed report, citations, abstracts and export work without a backend',
 })
 
 test('new research runs, collapses on completion, and follows up', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?demo=1')
   await page.getByRole('button', { name: '新建研究', exact: true }).click()
   await expect(page.getByRole('heading', { name: '从一个问题开始。' })).toBeVisible()
   await page.screenshot({ path: '../tmp/b1gone-welcome-desktop.png' })
@@ -127,7 +127,7 @@ test('new research runs, collapses on completion, and follows up', async ({ page
 })
 
 test('failed analysis keeps stage records and can retry successfully', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?demo=1')
   await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByLabel('演示时长').selectOption('6')
   await page.getByLabel('演示结果').selectOption('failure')
@@ -147,7 +147,7 @@ test('failed analysis keeps stage records and can retry successfully', async ({ 
 
 test('mobile layout stays within the screen and drawers support keyboard close', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/?demo=1')
   await page.evaluate(() => document.fonts.ready)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(page.getByRole('button', { name: '打开研究记录' })).toBeVisible()

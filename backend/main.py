@@ -26,11 +26,13 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     from backend.api.routes_research import router as research_router
+    from backend.api.routes_settings import router as settings_router
 
     application = FastAPI(title="多Agent学术研究助手", lifespan=lifespan)
     register_error_handlers(application)
     application.add_middleware(RequestTraceMiddleware)
     application.include_router(research_router, prefix="/api")
+    application.include_router(settings_router, prefix="/api")
 
     @application.get("/health")
     async def health():

@@ -5,6 +5,7 @@ import type { DemoSettings, Paper, ResearchSession } from './types'
 import { Dialog } from './components/Dialog'
 import { PaperPanel } from './components/PaperPanel'
 import { PaperResizeHandle } from './components/PaperResizeHandle'
+import { SidebarResizeHandle } from './components/SidebarResizeHandle'
 import { PixelIcon, Wordmark } from './components/PixelIcon'
 import { MarkdownContent, Report, reportMarkdown } from './components/Report'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -42,6 +43,7 @@ export default function App() {
   const [papersOpen, setPapersOpen] = useState(() => !window.matchMedia('(max-width: 1000px)').matches)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState<number>()
   const [paperWidth, setPaperWidth] = useState<number>()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [documentationOpen, setDocumentationOpen] = useState(false)
@@ -285,6 +287,7 @@ export default function App() {
     <aside ref={sidebarRef} className="desktop-sidebar" aria-label="侧边栏">
       {sidebarCollapsed ? <div className="collapsed-sidebar"><button ref={expandSidebarRef} className="icon-button" onClick={expandSidebar} aria-label="展开侧边栏" aria-expanded="false" aria-controls="desktop-sidebar-content" title="展开侧边栏"><PixelIcon name="expand" /></button></div> : null}
       <div id="desktop-sidebar-content" hidden={sidebarCollapsed}>{sidebar}</div>
+      {!sidebarCollapsed ? <SidebarResizeHandle preferredWidth={sidebarWidth} papersVisible={showDesktopPapers} onWidthChange={setSidebarWidth} /> : null}
     </aside>
     <main id="workspace" className={'workspace' + (homeEntryMotion ? ' home-research-entry' : '')} tabIndex={-1}>
       {homeEntryMotion ? <span className="home-entry-line" aria-hidden="true" /> : null}

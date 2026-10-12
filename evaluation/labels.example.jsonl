@@ -1,0 +1,1 @@
+{"example_only":true,"session_id":"replace-with-real-session-id","rag_k":6,"rag":[{"paper_id":"replace-with-real-source-id","relevant_chunk_ids":["replace-with-real-gold-chunk-id"]}],"papers":{"k":15,"judgments":{"replace-with-real-source-id":1},"reference_paper_ids":["replace-with-real-reference-id"]},"facts":[{"status":"supported","has_resolved_citation":true}]}

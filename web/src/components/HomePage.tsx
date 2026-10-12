@@ -4,6 +4,7 @@ import { useMotionEnabled } from '../hooks/useMotionEnabled'
 import { AsciiButton } from './AsciiButton'
 import { AnimatedPromptHint } from './AnimatedPromptHint'
 import { HomeMascot } from './HomeMascot'
+import { HomeMetrics } from './HomeMetrics'
 import { PixelIcon, Wordmark } from './PixelIcon'
 import '../homepage.css'
 
@@ -81,6 +82,7 @@ export function HomePage({ onStart, onWorkspace, onSettings, onDocumentation, su
   return <div ref={screenRef} className={'home-screen' + (motionEnabled ? ' home-motion-enabled' : '') + (launching ? ' is-launching' : '')}
     data-motion={motionEnabled ? 'enabled' : 'paused'} data-launch-state={launching ? 'entering' : 'idle'} aria-busy={launching}>
     <a className="skip-link" href="#home-question">跳到研究问题</a>
+    <div className="home-hero">
     <header className="home-header">
       <nav aria-label="首页导航" className="home-nav">
         <div className="home-nav-start">
@@ -120,6 +122,8 @@ export function HomePage({ onStart, onWorkspace, onSettings, onDocumentation, su
         </li>)}</ul>
       </section>
     </main>
+    </div>
+    <HomeMetrics motionEnabled={motionEnabled} />
     {launching && packet && motionEnabled ? <div className="home-prompt-packet" aria-hidden="true"
       style={{ left: packet.x, top: packet.y, '--packet-distance': packet.distance + 'px' } as CSSProperties}>{packet.question}</div> : null}
     <div className="home-crt-sweep" aria-hidden="true" />

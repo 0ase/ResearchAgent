@@ -43,11 +43,16 @@ button { border: 0; }
 .skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 10px 15px; color: var(--color-ink); background: var(--color-keycap); transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }
 
-.app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
-.app-shell.with-papers { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--papers-current-width, var(--papers-width)); }
+.app-shell { display: grid; grid-template-columns: var(--sidebar-current-width, var(--sidebar-width)) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+.app-shell.with-papers { grid-template-columns: var(--sidebar-current-width, var(--sidebar-width)) minmax(0, 1fr) var(--papers-current-width, var(--papers-width)); }
 .app-shell.sidebar-collapsed { --sidebar-width: 56px; }
-.desktop-sidebar { min-height: 0; background: var(--color-charcoal); color: #ede9dd; }
+.desktop-sidebar { position: relative; min-width: 0; min-height: 0; background: var(--color-charcoal); color: #ede9dd; }
 #desktop-sidebar-content { height: 100%; }
+.sidebar-resize-handle { position: absolute; inset-block: 0; right: -5px; width: 11px; cursor: col-resize; touch-action: none; z-index: 4; }
+.sidebar-resize-handle::after { content: ''; position: absolute; top: 50%; left: 4px; width: 3px; height: 28px; background: #737776; border-block: 5px solid var(--color-charcoal); }
+.sidebar-resize-handle:hover::after, .sidebar-resize-handle:focus-visible::after { background: var(--color-keycap); }
+.sidebar-resize-handle:focus-visible { outline: 1px solid var(--color-keycap); outline-offset: -3px; }
+.app-shell.is-resizing-sidebar, .app-shell.is-resizing-sidebar * { cursor: col-resize !important; user-select: none; }
 .sidebar-collapse { color: var(--color-keycap); }
 .sidebar-collapse:hover, .collapsed-sidebar .icon-button:hover { background: #e7dec51a; }
 .collapsed-sidebar { display: flex; justify-content: center; padding-top: 14px; }
@@ -273,7 +278,7 @@ dialog::backdrop { background: #131b1f80; }
   .user-question p { font-size: 17px; }
 }
 @media (max-width: 1000px) {
-  .app-shell, .app-shell.with-papers { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+  .app-shell, .app-shell.with-papers { grid-template-columns: var(--sidebar-current-width, var(--sidebar-width)) minmax(0, 1fr); }
   .papers-dialog .paper-panel-inner { padding: 20px; }
   .papers-dialog .paper-title-row h3 { font-size: 16px; }
   .papers-dialog .paper-description { font-size: 15px; }

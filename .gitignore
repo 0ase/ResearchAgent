@@ -83,5 +83,11 @@ logs/
 htmlcov/
 coverage.xml
 
+# Local evaluation inputs, observations, reports and generated public aggregates
+/evaluation/runs/
+/evaluation/reports/
+/evaluation/labels.jsonl
+/web/public/metrics/summary.json
+
 # Claude
 .claude/
